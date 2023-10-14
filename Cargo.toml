@@ -1,0 +1,13 @@
+cargo-features = ["per-package-target"]
+
+[package]
+name = "ios"
+version = "0.1.0"
+edition = "2021"
+default-target = "x86_64-unknown-uefi"
+
+[dependencies]
+uart_16550 = "0.2.0"
+uefi = "0.24.0"
+linked_list_allocator = "0.9.0"
+noto-sans-mono-bitmap = { version = "0.2.0", features = ["size_16"] }
