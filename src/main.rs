@@ -7,6 +7,7 @@
 mod arch;
 mod drivers;
 mod runtime;
+mod tasks;
 
 extern crate alloc;
 
@@ -17,6 +18,10 @@ use core::panic::PanicInfo;
 use linked_list_allocator::LockedHeap;
 
 use runtime::runtime;
+
+use tasks::Task;
+use tasks::executor::Executor;
+
 use uart_16550::SerialPort;
 
 #[global_allocator]
@@ -35,7 +40,11 @@ fn panic(info: &PanicInfo) -> ! {
 
 fn main() -> ! {
     writeln!(runtime().console.lock(), "Booting Iwan's OS!").unwrap();
+
+    let mut executor = Executor::new();
+
     loop {
+        executor.run_ready_tasks();
         unsafe { asm!("hlt") }
     }
 }
