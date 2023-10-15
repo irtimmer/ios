@@ -12,7 +12,9 @@ mod tasks;
 
 extern crate alloc;
 
-use core::arch::asm;
+use arch::Arch;
+use arch::system::System;
+
 use core::fmt::Write;
 use core::panic::PanicInfo;
 
@@ -35,7 +37,7 @@ fn panic(info: &PanicInfo) -> ! {
     serial.write_fmt(format_args!("{:#?}\n", info)).unwrap();
 
     loop {
-        unsafe { asm!("hlt") }
+        Arch::sleep();
     }
 }
 
@@ -47,6 +49,6 @@ fn main() -> ! {
 
     loop {
         executor.run_ready_tasks();
-        unsafe { asm!("hlt") }
+        Arch::sleep();
     }
 }

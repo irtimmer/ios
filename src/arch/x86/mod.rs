@@ -1,3 +1,11 @@
+use spin::Mutex;
+
+use x86_64::instructions;
+
+use self::paging::PageMapper;
+
+use super::system::System;
+
 pub mod acpi;
 pub mod boot;
 pub mod interrupts;
@@ -8,3 +16,18 @@ pub mod pci;
 pub mod gdt;
 
 mod efi;
+
+pub struct X86 {
+    memory: Mutex<PageMapper>
+}
+
+impl System for X86 {
+    fn sleep() {
+        instructions::hlt();
+    }
+
+    unsafe fn map(&self, from: usize, to: usize, length: usize) -> Result<(), &'static str> {
+        self.memory.lock().map(from, to, length);
+        Ok(())
+    }
+}
