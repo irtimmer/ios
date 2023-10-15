@@ -1,3 +1,4 @@
+#![feature(abi_x86_interrupt)]
 #![feature(pointer_byte_offsets)]
 
 #![no_main]
