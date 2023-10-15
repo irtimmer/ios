@@ -2,6 +2,12 @@ use spin::Once;
 
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
+use super::lapic;
+
+pub const SPURIOUS_INTERRUPT_INDEX: usize = 240;
+pub const TIMER_INTERRUPT_INDEX: usize = 241;
+pub const ERROR_INTERRUPT_INDEX: usize = 242;
+
 static IDT: Once<InterruptDescriptorTable> = Once::new();
 
 pub fn init() {
@@ -12,6 +18,10 @@ pub fn init() {
         idt.alignment_check.set_handler_fn(aligment_check_handler);
         idt.cp_protection_exception.set_handler_fn(cp_protection_handler);
         idt.double_fault.set_handler_fn(double_fault_handler);
+
+        idt[SPURIOUS_INTERRUPT_INDEX].set_handler_fn(lapic::spurious_interrupt_handler);
+        idt[TIMER_INTERRUPT_INDEX].set_handler_fn(lapic::timer_interrupt_handler);
+        idt[ERROR_INTERRUPT_INDEX].set_handler_fn(lapic::error_interrupt_handler);
         idt
     }).load();
 
