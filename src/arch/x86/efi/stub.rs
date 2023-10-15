@@ -1,5 +1,6 @@
 use uefi::proto::console::gop::GraphicsOutput;
 use uefi::table::boot::{MemoryType, PAGE_SIZE};
+use uefi::table::cfg::ACPI2_GUID;
 use uefi::table::{Boot, SystemTable};
 use uefi::{entry, Handle, Status};
 
@@ -23,6 +24,10 @@ fn efi_main(_handle: Handle, system_table: SystemTable<Boot>) -> Status {
             buffer: gop.frame_buffer().as_mut_ptr()
         }
     };
+
+    // Get location of ACPI tables
+    let cfg_tbl = system_table.config_table();
+    let acpi_table = cfg_tbl.iter().find(|entry| entry.guid == ACPI2_GUID).map(|entry| entry.address);
 
     let (_, memory_map) = system_table.exit_boot_services();
 
@@ -60,5 +65,5 @@ fn efi_main(_handle: Handle, system_table: SystemTable<Boot>) -> Status {
 
     unsafe { mapper.activate(); }
 
-    boot(fb);
+    boot(acpi_table, fb);
 }
