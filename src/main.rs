@@ -7,6 +7,7 @@
 mod arch;
 mod drivers;
 mod runtime;
+mod shell;
 mod tasks;
 
 extern crate alloc;
@@ -14,8 +15,6 @@ extern crate alloc;
 use core::arch::asm;
 use core::fmt::Write;
 use core::panic::PanicInfo;
-
-use futures_util::StreamExt;
 
 use linked_list_allocator::LockedHeap;
 
@@ -44,18 +43,10 @@ fn main() -> ! {
     writeln!(runtime().console.lock(), "Booting Iwan's OS!").unwrap();
 
     let mut executor = Executor::new();
-    executor.spawn(Task::new(print_keys()));
+    executor.spawn(Task::new(shell::ios_shell()));
 
     loop {
         executor.run_ready_tasks();
         unsafe { asm!("hlt") }
-    }
-}
-
-pub async fn print_keys() {
-    let mut stream = runtime().keyboard.stream();
-    loop {
-        let character = stream.next().await.unwrap();
-        runtime().console.lock().write_char(character).unwrap()
     }
 }
