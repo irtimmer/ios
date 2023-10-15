@@ -4,6 +4,7 @@ pub mod interrupts;
 pub mod ioapic;
 pub mod lapic;
 pub mod paging;
+pub mod pci;
 pub mod gdt;
 
 mod efi;
