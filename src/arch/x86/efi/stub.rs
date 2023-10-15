@@ -3,9 +3,10 @@ use uefi::table::boot::{MemoryType, PAGE_SIZE};
 use uefi::table::{Boot, SystemTable};
 use uefi::{entry, Handle, Status};
 
+use crate::arch::x86::boot::boot;
 use crate::arch::x86::paging::PageMapper;
 use crate::drivers::video::fb::FrameBuffer;
-use crate::{main, ALLOCATOR};
+use crate::ALLOCATOR;
 
 #[entry]
 #[allow(named_asm_labels)]
@@ -59,5 +60,5 @@ fn efi_main(_handle: Handle, system_table: SystemTable<Boot>) -> Status {
 
     unsafe { mapper.activate(); }
 
-    main(fb);
+    boot(fb);
 }
