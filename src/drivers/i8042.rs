@@ -1,6 +1,12 @@
-use core::fmt::Write;
+use core::task::{Context, Poll};
+use core::pin::Pin;
 
 use bitflags::bitflags;
+
+use crossbeam_queue::ArrayQueue;
+
+use futures_util::task::AtomicWaker;
+use futures_util::Stream;
 
 use pc_keyboard::{layouts, DecodedKey, ScancodeSet2};
 
@@ -8,7 +14,6 @@ use spin::Mutex;
 
 use x86_64::instructions::port::Port;
 
-use crate::runtime::runtime;
 struct I8042 {
     data_port: Port<u8>,
     control_port: Port<u8>,
@@ -195,14 +200,18 @@ impl I8042 {
 
 pub struct PcKeyboard {
     i8042: Mutex<I8042>,
+    queue: ArrayQueue<char>,
     processor: Mutex<pc_keyboard::Keyboard<layouts::Us104Key, ScancodeSet2>>,
+    waker: AtomicWaker
 }
 
 impl PcKeyboard {
     pub fn new() -> Self {
         Self {
             i8042: Mutex::new(I8042::new()),
+            queue: ArrayQueue::new(100),
             processor: Mutex::new(pc_keyboard::Keyboard::new(ScancodeSet2::new(), layouts::Us104Key, pc_keyboard::HandleControl::Ignore)),
+            waker: AtomicWaker::new()
         }
     }
 
@@ -219,10 +228,48 @@ impl PcKeyboard {
         if let Ok(Some(key_event)) = kbd.add_byte(scancode) {
             if let Some(key) = kbd.process_keyevent(key_event) {
                 match key {
-                    DecodedKey::Unicode(character) => runtime().console.lock().write_char(character).unwrap(),
+                    DecodedKey::Unicode(character) => {
+                        self.waker.wake();
+                        self.queue.push(character).unwrap();
+                    },
                     DecodedKey::RawKey(_) => {}
                 }
             }
         }
+    }
+
+    fn poll_char(&self, cx: &mut Context) -> Poll<Option<char>> {
+        // fast path
+        if let Some(character) = self.queue.pop().ok() {
+            return Poll::Ready(Some(character));
+        }
+
+        self.waker.register(&cx.waker());
+        let x = self.queue.pop().ok();
+        match x {
+            Some(character) => {
+                self.waker.take();
+                Poll::Ready(Some(character))
+            }
+            None => Poll::Pending,
+        }
+    }
+
+    pub fn stream(&self) -> KeyboardStream<'_> {
+        KeyboardStream {
+            keyboard: self
+        }
+    }
+}
+
+pub struct KeyboardStream<'a> {
+    pub keyboard: &'a PcKeyboard,
+}
+
+impl<'a> Stream for KeyboardStream<'a> {
+    type Item = char;
+
+    fn poll_next(self: Pin<&mut Self>, cx: &mut Context) -> Poll<Option<char>> {
+        self.keyboard.poll_char(cx)
     }
 }

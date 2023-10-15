@@ -10,6 +10,7 @@ default-target = "x86_64-unknown-uefi"
 acpi = "5.0.0"
 bitflags = "2.4.0"
 crossbeam-queue = { version = "0.2.1", default-features = false, features = ["alloc"] }
+futures-util = { version = "0.3.4", default-features = false, features = ["alloc"] }
 pc-keyboard = "0.7.0"
 uart_16550 = "0.2.0"
 uefi = "0.24.0"
