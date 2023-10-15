@@ -2,6 +2,7 @@ use acpi::{AcpiTables, PlatformInfo, InterruptModel};
 
 use core::ffi::c_void;
 
+use crate::drivers::i8042::PcKeyboard;
 use crate::drivers::video::fb::FrameBuffer;
 use crate::runtime::Runtime;
 use crate::main;
@@ -10,7 +11,10 @@ use super::acpi::IdentityMappedAcpiMemory;
 use super::{gdt, interrupts, lapic, ioapic};
 
 pub fn boot(acpi_table: Option<*const c_void>, fb: FrameBuffer) -> ! {
-    Runtime::init(fb);
+    let keyboard = PcKeyboard::new();
+    keyboard.init();
+
+    Runtime::init(fb, keyboard);
 
     gdt::init();
     interrupts::init();

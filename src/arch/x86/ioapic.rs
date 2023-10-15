@@ -1,8 +1,5 @@
-use core::fmt::Write;
-
 use x2apic::ioapic::IoApic;
 
-use x86_64::instructions::port::Port;
 use x86_64::structures::idt::InterruptStackFrame;
 
 use crate::runtime::runtime;
@@ -20,9 +17,7 @@ pub fn init(base_addr: u64, id: u8) {
 }
 
 pub extern "x86-interrupt" fn keyboard_interrupt_handler(_: InterruptStackFrame) {
-    let mut port = Port::new(0x60);
-    let scancode: u8 = unsafe { port.read() };
-    writeln!(runtime().console.lock(), "KBD: {}", scancode).unwrap();
+    runtime().keyboard.read_scancode();
 
     unsafe {
         local_apic().end_of_interrupt();
