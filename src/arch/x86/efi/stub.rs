@@ -3,6 +3,7 @@ use uefi::table::boot::{MemoryType, PAGE_SIZE};
 use uefi::table::{Boot, SystemTable};
 use uefi::{entry, Handle, Status};
 
+use crate::arch::x86::paging::PageMapper;
 use crate::drivers::video::fb::FrameBuffer;
 use crate::{main, ALLOCATOR};
 
@@ -37,6 +38,26 @@ fn efi_main(_handle: Handle, system_table: SystemTable<Boot>) -> Status {
             _ => {}
         }
     }
+
+    // Initialize new page table
+    let mut mapper = PageMapper::new(0);
+    for entry in memory_map.entries() {
+        unsafe {
+            if entry.ty == MemoryType::LOADER_CODE || entry.ty == MemoryType::LOADER_DATA || entry.ty == MemoryType::CONVENTIONAL {
+                mapper.map(entry.phys_start as usize, entry.phys_start as usize, entry.page_count as usize * PAGE_SIZE);
+            } else {
+                mapper.map(entry.phys_start as usize, entry.phys_start as usize, entry.page_count as usize * PAGE_SIZE);
+            }
+        };
+    }
+
+    // Map memory of framebuffer
+    let fb_len = fb.height * fb.stride * (fb.bpp / 8);
+    unsafe {
+        mapper.map(fb.buffer as usize, fb.buffer as usize, fb_len);
+    }
+
+    unsafe { mapper.activate(); }
 
     main(fb);
 }
