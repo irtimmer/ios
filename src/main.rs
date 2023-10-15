@@ -6,6 +6,7 @@
 
 mod arch;
 mod drivers;
+mod runtime;
 
 extern crate alloc;
 
@@ -13,11 +14,9 @@ use core::arch::asm;
 use core::fmt::Write;
 use core::panic::PanicInfo;
 
-use drivers::video::console::Console;
-use drivers::video::fb::FrameBuffer;
-
 use linked_list_allocator::LockedHeap;
 
+use runtime::runtime;
 use uart_16550::SerialPort;
 
 #[global_allocator]
@@ -34,9 +33,8 @@ fn panic(info: &PanicInfo) -> ! {
     }
 }
 
-fn main(fb: FrameBuffer) -> ! {
-    let mut console = Console::new(fb);
-    writeln!(console, "Booting Iwan's OS!").unwrap();
+fn main() -> ! {
+    writeln!(runtime().console.lock(), "Booting Iwan's OS!").unwrap();
     loop {
         unsafe { asm!("hlt") }
     }
