@@ -57,6 +57,11 @@ fn efi_main(_handle: Handle, system_table: SystemTable<Boot>) -> Status {
         };
     }
 
+    // Map IOAPIC
+    unsafe {
+        mapper.map(0xfec00000, 0xfec00000, 4096);
+    }
+
     // Map memory of framebuffer
     let fb_len = fb.height * fb.stride * (fb.bpp / 8);
     unsafe {

@@ -2,7 +2,10 @@ use spin::Once;
 
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
-use super::lapic;
+use super::{lapic, ioapic};
+
+pub const IOAPIC_INTERRUPT_OFFSET: usize = 32;
+pub const KEYBOARD_INTERRUPT_INDEX: usize = IOAPIC_INTERRUPT_OFFSET + 1;
 
 pub const SPURIOUS_INTERRUPT_INDEX: usize = 240;
 pub const TIMER_INTERRUPT_INDEX: usize = 241;
@@ -22,6 +25,8 @@ pub fn init() {
         idt[SPURIOUS_INTERRUPT_INDEX].set_handler_fn(lapic::spurious_interrupt_handler);
         idt[TIMER_INTERRUPT_INDEX].set_handler_fn(lapic::timer_interrupt_handler);
         idt[ERROR_INTERRUPT_INDEX].set_handler_fn(lapic::error_interrupt_handler);
+
+        idt[KEYBOARD_INTERRUPT_INDEX].set_handler_fn(ioapic::keyboard_interrupt_handler);
         idt
     }).load();
 
