@@ -1,21 +1,51 @@
-use core::fmt::{Write, self};
+use core::fmt;
+use core::slice;
 
 use pci_types::{PciAddress, ConfigRegionAccess, PciHeader, EndpointHeader, MAX_BARS, Bar};
 
 use crate::arch::PciConfigRegion;
+use crate::arch::system::System;
 use crate::runtime::runtime;
 
 pub struct PciDevice {
     address: PciAddress,
+    pub bars: [Option<&'static [u8]>; MAX_BARS],
     access: PciConfigRegion
 }
 
 impl PciDevice {
     pub fn new(address: PciAddress, access: PciConfigRegion) -> Self{
         Self {
+            bars: [None; MAX_BARS],
             address,
             access
         }
+    }
+
+    pub fn init(&mut self) -> Result<(), &'static str> {
+        let header = PciHeader::new(self.address);
+        let endpoint = EndpointHeader::from_header(header, &self.access).ok_or("Endpoint header not found!")?;
+
+        let mut skip_next = false;
+        for slot in 0..MAX_BARS as u8 {
+            if skip_next {
+                skip_next = false;
+                continue;
+            }
+            match endpoint.bar(slot, &self.access) {
+                Some(Bar::Memory64 { address, size, prefetchable }) => {
+                    unsafe { runtime().system.map(address as usize, address as usize, size as usize); }
+                    self.bars[slot as usize] = unsafe { Some(slice::from_raw_parts_mut(address as *mut u8, size as usize)) };
+                    skip_next = true;
+                },
+                Some(Bar::Memory32 { address, size, prefetchable }) => {
+                    unsafe { runtime().system.map(address as usize, address as usize, size as usize); }
+                    self.bars[slot as usize] = unsafe { Some(slice::from_raw_parts_mut(address as *mut u8, size as usize)) };
+                },
+                _ => {}
+            }
+        }
+        Ok(())
     }
 }
 

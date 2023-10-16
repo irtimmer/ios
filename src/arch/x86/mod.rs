@@ -4,7 +4,7 @@ use x86_64::instructions;
 
 use self::paging::PageMapper;
 
-use super::system::System;
+use super::system::{System, MemoryMapError};
 
 pub mod acpi;
 pub mod boot;
@@ -26,8 +26,8 @@ impl System for X86 {
         instructions::hlt();
     }
 
-    unsafe fn map(&self, from: usize, to: usize, length: usize) -> Result<(), &'static str> {
-        self.memory.lock().map(from, to, length);
+    unsafe fn map(&self, from: usize, to: usize, length: usize) -> Result<(), MemoryMapError> {
+        self.memory.lock().map(from, to, length)?;
         Ok(())
     }
 }

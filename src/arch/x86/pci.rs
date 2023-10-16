@@ -90,8 +90,9 @@ pub fn init() {
 
 			let (device_id, vendor_id) = header.id(&pci_config);
 			if device_id != u16::MAX && vendor_id != u16::MAX {
-                let device = PciDevice::new(pci_address, pci_config.clone());
+                let mut device = PciDevice::new(pci_address, pci_config.clone());
                 writeln!(runtime().console.lock(), "PCI {:#}", device).unwrap();
+				device.init().unwrap();
 			}
 		}
 	}
