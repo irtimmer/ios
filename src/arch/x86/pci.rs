@@ -6,6 +6,7 @@ use spin::{Mutex, Lazy};
 
 use x86_64::instructions::port::Port;
 
+use crate::drivers::pci::PciDevice;
 use crate::runtime::runtime;
 
 const PCI_MAX_BUS_NUMBER: u8 = 32;
@@ -89,7 +90,8 @@ pub fn init() {
 
 			let (device_id, vendor_id) = header.id(&pci_config);
 			if device_id != u16::MAX && vendor_id != u16::MAX {
-                writeln!(runtime().console.lock(), "Found {:#}", device).unwrap();
+                let device = PciDevice::new(pci_address, pci_config.clone());
+                writeln!(runtime().console.lock(), "PCI {:#}", device).unwrap();
 			}
 		}
 	}
