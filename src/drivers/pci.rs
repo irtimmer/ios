@@ -8,7 +8,7 @@ use crate::arch::system::System;
 use crate::runtime::runtime;
 
 pub struct PciDevice {
-    address: PciAddress,
+    pub address: PciAddress,
     pub bars: [Option<&'static [u8]>; MAX_BARS],
     access: PciConfigRegion
 }
@@ -47,6 +47,18 @@ impl PciDevice {
         }
         Ok(())
     }
+
+    pub fn access(&self) -> PciConfigRegion {
+        return self.access.clone();
+    }
+
+    pub fn read_register(&self, register: u16) -> u32 {
+		unsafe { self.access.read(self.address, register) }
+	}
+
+	pub fn write_register(&self, register: u16, value: u32) {
+		unsafe { self.access.write(self.address, register, value) }
+	}
 }
 
 impl fmt::Display for PciDevice {
