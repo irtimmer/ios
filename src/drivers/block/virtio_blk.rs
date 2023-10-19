@@ -2,10 +2,13 @@ use alloc::sync::Arc;
 
 use crate::drivers::pci::PciDevice;
 use crate::drivers::virtio::pci::{DeviceStatus, VirtioPciDevice};
+use crate::runtime::Resource;
 
 pub struct VirtioBlk {
     device: VirtioPciDevice<BlkConfig>
 }
+
+impl Resource for VirtioBlk {}
 
 /// Virtio's block device configuration structure.
 /// See specification v1.1. - 5.2.4

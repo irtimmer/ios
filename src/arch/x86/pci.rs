@@ -1,3 +1,5 @@
+use alloc::sync::Arc;
+
 use core::fmt::Write;
 
 use pci_types::{PciAddress, ConfigRegionAccess, PciHeader};
@@ -6,6 +8,7 @@ use spin::{Mutex, Lazy};
 
 use x86_64::instructions::port::Port;
 
+use crate::drivers::block::virtio_blk::VirtioBlk;
 use crate::drivers::pci::PciDevice;
 use crate::runtime::runtime;
 
@@ -93,6 +96,16 @@ pub fn init() {
                 let mut device = PciDevice::new(pci_address, pci_config.clone());
                 writeln!(runtime().console.lock(), "PCI {:#}", device).unwrap();
 				device.init().unwrap();
+
+				let header = PciHeader::new(device.address);
+				let (vendor_id, device_id) = header.id(&pci_config);
+				match (vendor_id, device_id) {
+					(0x1af4, 0x1001) => {
+						let driver = VirtioBlk::new(Arc::new(device)).unwrap();
+						runtime().register(Arc::new(driver));
+					},
+					_ => {}
+				}
 			}
 		}
 	}
