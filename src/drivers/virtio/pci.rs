@@ -6,6 +6,8 @@ use core::mem;
 use pci_types::capability::PciCapability;
 use pci_types::{ConfigRegionAccess, EndpointHeader, PciHeader};
 
+use crate::arch::system::System;
+use crate::arch::Arch;
 use crate::drivers::pci::PciDevice;
 
 /// ISR status structure of Virtio PCI devices.
@@ -159,5 +161,29 @@ impl<S> VirtioPciDevice<S> {
             notify_cfg: notify_cfg.ok_or("No notify config found")?,
             device_cfg: dev_cfg.ok_or("No device config found")?,
         })
+    }
+
+    pub fn set_device_status(&mut self, status: DeviceStatus) {
+        Arch::memory_barrier();
+        self.common.device_status |= status as u8;
+    }
+
+    pub fn get_features(&mut self) -> u64 {
+        Arch::memory_barrier();
+        self.common.device_feature_select = 1;
+        Arch::memory_barrier();
+
+        // read high 32 bits of device features
+        let mut dev_feat = u64::from(self.common.device_feature) << 32;
+
+        // Indicate device to show low 32 bits in device_feature field.
+        // See Virtio specification v1.1. - 4.1.4.3
+        self.common.device_feature_select = 0;
+        Arch::memory_barrier();
+
+        // read low 32 bits of device features
+        dev_feat |= u64::from(self.common.device_feature);
+
+        dev_feat
     }
 }

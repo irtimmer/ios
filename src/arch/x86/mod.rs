@@ -30,4 +30,14 @@ impl System for X86 {
         self.memory.lock().map(from, to, length)?;
         Ok(())
     }
+
+    /// Force strict CPU ordering, serializes load and store operations.
+    #[allow(dead_code)]
+    #[inline(always)]
+    fn memory_barrier() {
+        use core::arch::asm;
+        unsafe {
+            asm!("mfence", options(nostack, nomem, preserves_flags));
+        }
+    }
 }
