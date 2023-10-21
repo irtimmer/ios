@@ -10,6 +10,8 @@ use crate::arch::system::System;
 use crate::arch::Arch;
 use crate::drivers::pci::PciDevice;
 
+use super::virtq::VirtqHandler;
+
 /// ISR status structure of Virtio PCI devices.
 /// See Virtio specification v1.1. - 4.1.4.5
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
@@ -45,14 +47,14 @@ pub struct ComCfgRaw {
 	device_status: u8,
 	config_generation: u8,
 
-	queue_select: u16,
-	queue_size: u16,
-	queue_msix_vector: u16,
-	queue_enable: u16,
-	queue_notify_off: u16,
-	queue_desc: u64,
-	queue_driver: u64,
-	queue_device: u64
+	pub queue_select: u16,
+	pub queue_size: u16,
+	pub queue_msix_vector: u16,
+	pub queue_enable: u16,
+	pub queue_notify_off: u16,
+	pub queue_desc: u64,
+	pub queue_driver: u64,
+	pub queue_device: u64
 }
 
 /// Virtio's cfg_type constants; indicating type of structure in capabilities list
@@ -186,4 +188,15 @@ impl<S> VirtioPciDevice<S> {
 
         dev_feat
     }
+
+    pub fn get_virtq_handler(&mut self, index: u16) -> Option<VirtqHandler<'_>> {
+        self.common.queue_select = index;
+        let notify_addr = unsafe { self.notify_cfg.memory.as_ptr().byte_add(self.common.queue_notify_off as usize * self.notify_cfg.notify_off_multiplier as usize) };
+
+        if self.common.queue_size == 0 {
+            None
+        } else {
+            Some(VirtqHandler::new(self.common, index, notify_addr as *mut u16))
+        }
+	}
 }
