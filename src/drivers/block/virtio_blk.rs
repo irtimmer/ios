@@ -1,11 +1,16 @@
+use alloc::boxed::Box;
 use alloc::sync::Arc;
+
+use spin::Mutex;
 
 use crate::drivers::pci::PciDevice;
 use crate::drivers::virtio::pci::{DeviceStatus, VirtioPciDevice};
+use crate::drivers::virtio::virtq::{Virtq, Descriptor, VIRTQ_DESC_F_WRITE};
 use crate::runtime::Resource;
 
 pub struct VirtioBlk {
-    device: VirtioPciDevice<BlkConfig>
+    device: VirtioPciDevice<BlkConfig>,
+    queue: Mutex<Virtq>
 }
 
 impl Resource for VirtioBlk {}
@@ -24,6 +29,34 @@ pub struct BlkConfig {
     blk_size: u32,
 }
 
+#[allow(non_camel_case_types)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u32)]
+pub enum BlkRequestType {
+    VIRTIO_BLK_T_IN = 0,
+    VIRTIO_BLK_T_OUT = 1,
+    VIRTIO_BLK_T_FLUSH = 4,
+    VIRTIO_BLK_T_DISCARD = 11,
+    VIRTIO_BLK_T_WRITE_ZEROES = 13,
+}
+
+#[allow(non_camel_case_types)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(u8)]
+pub enum BlkRequestStatus {
+    VIRTIO_BLK_S_OK = 0,
+    VIRTIO_BLK_S_IOERR = 1,
+    VIRTIO_BLK_S_UNSUPP = 2,
+}
+
+#[derive(Debug, Copy, Clone)]
+#[repr(C)]
+pub struct BlkRequest {
+    request_type: BlkRequestType,
+    reserved: u32,
+    sector: u64,
+}
+
 impl VirtioBlk {
     pub fn new(device: Arc<PciDevice>) -> Result<Self, &'static str> {
         let mut virtio = VirtioPciDevice::new(device)?;
@@ -34,10 +67,36 @@ impl VirtioBlk {
         let _device_features = virtio.get_features();
         virtio.set_device_status(DeviceStatus::FEATURES_OK);
 
-        let device = Arc::new(VirtioBlk {
-            device: virtio
-        });
+        let mut queue_handler = virtio.get_virtq_handler(0).ok_or("Virtqueue not found!")?;
+        let queue = Virtq::new(&mut queue_handler);
+
+        let mut device = VirtioBlk {
+            device: virtio,
+            queue: Mutex::new(queue)
+        };
+
+        device.device.set_device_status(DeviceStatus::DRIVER_OK);
 
         Ok(device)
+    }
+
+    pub async fn read(&self, buf: &mut [u8], offset: usize) -> Result<(), &'static str> {
+        let mut status = BlkRequestStatus::VIRTIO_BLK_S_IOERR;
+
+        let mut blk_request = Box::pin(BlkRequest {
+            request_type: BlkRequestType::VIRTIO_BLK_T_IN,
+            reserved: 0,
+            sector: offset as u64,
+        });
+
+        let descs = [
+            Descriptor::new(blk_request.as_mut().get_mut(), 0),
+            Descriptor::new_raw(buf.as_mut_ptr(), buf.len(), VIRTQ_DESC_F_WRITE),
+            Descriptor::new(&mut status, VIRTQ_DESC_F_WRITE),
+        ];
+
+        self.queue.lock().request(&descs).await.unwrap();
+
+        Ok(())
     }
 }
