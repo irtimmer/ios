@@ -1,9 +1,11 @@
 use alloc::string::String;
+use alloc::vec::Vec;
 
 use core::fmt::Write;
 
 use futures_util::StreamExt;
 
+use crate::drivers::block::virtio_blk::VirtioBlk;
 use crate::drivers::i8042::KeyboardStream;
 use crate::runtime::runtime;
 
@@ -26,6 +28,21 @@ pub async fn ios_shell() {
     loop {
         runtime().console.lock().write_str("> ").unwrap();
         let input = read_line(&mut stream).await;
-        writeln!(runtime().console.lock(), "{}", input).unwrap();
+        let (cmd, args) = input.split_once(' ').unwrap_or((&input, ""));
+        match cmd {
+            "echo" => writeln!(runtime().console.lock(), "{}", args).unwrap(),
+            "read" => read(args).await,
+            _ => writeln!(runtime().console.lock(), "Command '{}' not found", cmd).unwrap(),
+        }
     }
+}
+
+pub async fn read(args: &str) {
+    let args: Vec<&str> = args.split(' ').collect();
+
+    let block = runtime().get::<VirtioBlk>().unwrap();
+    let mut buf = [1u8; 512];
+    block.read(buf.as_mut_slice(), args[0].parse().unwrap()).await.unwrap();
+
+    writeln!(runtime().console.lock(), "Return: {:x?}", &buf).unwrap();
 }
