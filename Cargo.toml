@@ -9,6 +9,7 @@ default-target = "x86_64-unknown-uefi"
 [dependencies]
 ahash = { version = "0.8", default-features = false }
 acpi = "5.0.0"
+async-trait = "0.1.72"
 bitflags = "2.4.0"
 crossbeam-queue = { version = "0.2.1", default-features = false, features = ["alloc"] }
 futures-util = { version = "0.3.4", default-features = false, features = ["alloc"] }

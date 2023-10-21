@@ -1,8 +1,11 @@
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 
+use async_trait::async_trait;
+
 use spin::Mutex;
 
+use crate::block::Block;
 use crate::drivers::pci::PciDevice;
 use crate::drivers::virtio::pci::{DeviceStatus, VirtioPciDevice};
 use crate::drivers::virtio::virtq::{Virtq, Descriptor, VIRTQ_DESC_F_WRITE};
@@ -79,14 +82,17 @@ impl VirtioBlk {
 
         Ok(device)
     }
+}
 
-    pub async fn read(&self, buf: &mut [u8], offset: usize) -> Result<(), &'static str> {
+#[async_trait]
+impl Block for VirtioBlk {
+    async fn read(&self, buf: &mut [u8], sector: u64) -> Result<(), &'static str> {
         let mut status = BlkRequestStatus::VIRTIO_BLK_S_IOERR;
 
         let mut blk_request = Box::pin(BlkRequest {
             request_type: BlkRequestType::VIRTIO_BLK_T_IN,
             reserved: 0,
-            sector: offset as u64,
+            sector
         });
 
         let descs = [

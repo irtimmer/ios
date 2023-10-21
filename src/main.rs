@@ -6,6 +6,7 @@
 #![no_std]
 
 mod arch;
+mod block;
 mod drivers;
 mod runtime;
 mod shell;

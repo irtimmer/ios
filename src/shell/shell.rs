@@ -5,6 +5,7 @@ use core::fmt::Write;
 
 use futures_util::StreamExt;
 
+use crate::block::Block;
 use crate::drivers::block::virtio_blk::VirtioBlk;
 use crate::drivers::i8042::KeyboardStream;
 use crate::runtime::runtime;
