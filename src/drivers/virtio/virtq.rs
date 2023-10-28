@@ -6,6 +6,7 @@ use core::sync::atomic::{fence, Ordering};
 use core::task::{Poll, Context};
 
 use futures_util::future::BoxFuture;
+use futures_util::task::AtomicWaker;
 
 use super::pci::ComCfgRaw;
 
@@ -50,11 +51,13 @@ struct UsedRing<const COUNT: usize> {
 
 struct StaticQueue<const COUNT: usize> {
     avail_wrap_count: bool,
+    state: [bool; COUNT],
     descr_head: usize,
     descr_current: usize,
     descr_next: usize,
     avail_next: usize,
     notify_addr: *mut u16,
+    wakers: [AtomicWaker; COUNT],
     descriptors: DescriptorRing<COUNT>,
     avail: AvailRing<COUNT>,
     used_last: usize,
@@ -157,11 +160,13 @@ impl<const COUNT: usize> StaticQueue<COUNT> {
     pub fn new(notify_addr: *mut u16) -> Self {
         let mut queues = Self {
             avail_wrap_count: true,
+            state: [false; COUNT],
             descr_head: 0,
             descr_current: 0,
             descr_next: 0,
             avail_next: 0,
             notify_addr,
+            wakers: core::array::from_fn(|_| AtomicWaker::new()),
             descriptors: [Descriptor::default(); COUNT],
             avail: AvailRing {
                 flags: 0,
@@ -206,21 +211,35 @@ impl<const COUNT: usize> StaticQueue<COUNT> {
         self.descr_next = next_free;
     }
 
-    pub fn poll_request(&mut self, ctx: &mut Context, head: usize) -> Poll<()> {
-        loop {
-            while self.used_last != self.used.index as usize {
-                let idx = self.used.ring[self.used_last].id as usize;
+    pub fn process_used_queue(&mut self, ignore: usize) {
+        while self.used_last != self.used.index as usize {
+            // Notify other sleeping pollers
+            let idx = self.used.ring[self.used_last].id as usize;
+            self.state[idx] = true;
 
-                if idx == head {
-                    return Poll::Ready(());
-                }
-
-                // Update counter
-                self.used_last = (self.used_last + 1) % self.descriptors.len();
-                if self.used_last == 0 {
-                    self.avail_wrap_count = !self.avail_wrap_count;
-                }
+            if ignore != idx {
+                self.wakers[idx].wake();
             }
+
+            // Update counter
+            self.used_last = (self.used_last + 1) % self.descriptors.len();
+            if self.used_last == 0 {
+                self.avail_wrap_count = !self.avail_wrap_count;
+            }
+        }
+    }
+
+    pub fn poll_request(&mut self, ctx: &mut Context, head: usize) -> Poll<()> {
+        if self.state[head] {
+            return Poll::Ready(())
+        }
+
+        self.wakers[head].register(&ctx.waker());
+        if self.state[head] {
+            Poll::Ready(())
+        } else {
+            self.wakers[head].wake();
+            Poll::Pending
         }
     }
 
@@ -264,6 +283,10 @@ impl<const COUNT: usize> Queue for StaticQueue<COUNT> {
             current_chain as u16
         })
     }
+
+    fn process(&mut self) {
+        self.process_used_queue(usize::MAX);
+    }
 }
 
 impl Virtq {
@@ -296,5 +319,9 @@ impl Virtq {
         self.queues.request(descs).await;
 
         Ok(())
+    }
+
+    pub fn process(&mut self) {
+        self.queues.process();
     }
 }
