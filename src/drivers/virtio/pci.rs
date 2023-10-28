@@ -8,7 +8,7 @@ use pci_types::{ConfigRegionAccess, EndpointHeader, PciHeader};
 
 use crate::arch::system::System;
 use crate::arch::Arch;
-use crate::drivers::pci::PciDevice;
+use crate::drivers::pci::{PciDevice, MsixCapability};
 
 use super::virtq::VirtqHandler;
 
@@ -105,6 +105,7 @@ pub struct VirtioPciDevice<S: 'static> {
     isr_cfg: &'static mut IsrStatusRaw,
     notify_cfg: Notify,
     device_cfg: &'static mut S,
+    pub msix: MsixCapability
 }
 
 impl<S> VirtioPciDevice<S> {
@@ -117,6 +118,7 @@ impl<S> VirtioPciDevice<S> {
             return Err("Virtio device does not have a capability pointer");
         }
 
+        let mut msix = None;
         let mut common_cfg = None;
         let mut dev_cfg = None;
         let mut isr_cfg = None;
@@ -124,6 +126,21 @@ impl<S> VirtioPciDevice<S> {
 
         endpoint_header.capabilities(&device.access()).for_each(|c| {
             match c {
+                PciCapability::MsiX(address) => {
+                    let mut cap = MsixCapability::default();
+                    let cap_addr = &mut cap as *mut MsixCapability;
+                    for offset in (0..core::mem::size_of::<MsixCapability>()).step_by(4) {
+                        let value = unsafe { device.access().read(address.address, address.offset + offset as u16) };
+                        unsafe { *(cap_addr.byte_offset(offset as isize) as *mut u32) = value; }
+                    }
+                    cap.enable();
+                    msix = Some(cap);
+
+                    for offset in (0..core::mem::size_of::<MsixCapability>()).step_by(4) {
+                        let value = unsafe { *(cap_addr.byte_offset(offset as isize) as *mut u32) };
+                        unsafe { device.access().write(address.address, address.offset + offset as u16, value) };
+                    }
+                },
                 PciCapability::Vendor(address) => {
                     let mut cap = VirtioPciCapability::default();
                     let cap_addr = &mut cap as *mut VirtioPciCapability;
@@ -162,6 +179,7 @@ impl<S> VirtioPciDevice<S> {
             isr_cfg: isr_cfg.ok_or("No ISR config found")?,
             notify_cfg: notify_cfg.ok_or("No notify config found")?,
             device_cfg: dev_cfg.ok_or("No device config found")?,
+            msix: msix.ok_or("No MSI-X configuration")?,
         })
     }
 

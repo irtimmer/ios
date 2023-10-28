@@ -7,6 +7,25 @@ use crate::arch::PciConfigRegion;
 use crate::arch::system::System;
 use crate::runtime::runtime;
 
+#[repr(C, packed)]
+#[derive(Debug, Default, Copy, Clone)]
+pub struct MsixCapability {
+	cap_id: u8,
+	cap_next: u8,
+    message_control: u16,
+    table_offset: u32,
+    pba_offset: u32,
+}
+
+// Define structure for MSI-X Table Entry
+#[repr(C, packed)]
+#[derive(Debug, Default, Copy, Clone)]
+pub struct MsixTableEntry {
+    pub message_address: u64,
+    pub message_data: u32,
+    pub vector_control: u32
+}
+
 pub struct PciDevice {
     pub address: PciAddress,
     pub bars: [Option<&'static [u8]>; MAX_BARS],
@@ -59,6 +78,39 @@ impl PciDevice {
 	pub fn write_register(&self, register: u16, value: u32) {
 		unsafe { self.access.write(self.address, register, value) }
 	}
+}
+
+impl MsixCapability {
+    pub fn entries(&mut self, bar_address: usize) -> &mut [MsixTableEntry] {
+        let length = self.message_control & 0x3FF;
+        let address = (self.table_offset & 0xFFFC) as usize + bar_address;
+        unsafe { core::slice::from_raw_parts_mut(address as *mut MsixTableEntry, length as usize) }
+    }
+
+    pub fn enable(&mut self) {
+        self.message_control |= 0x8000;
+    }
+}
+
+impl fmt::Display for MsixCapability {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        writeln!(f, "MSI-X Capability:")?;
+        writeln!(f, " Cap ID: {}", self.cap_id)?;
+        writeln!(f, " Cap Next: {}", self.cap_next)?;
+        let enabled = self.message_control & 0x8000;
+        let function_mask = self.message_control & 0x4000;
+        let table_size = self.message_control & 0x3FF;
+        let mc = self.message_control;
+        writeln!(f, " Message Control: {:b} {}/{} {}", mc, enabled, function_mask, table_size)?;
+        let table = self.table_offset & 0xFFFC;
+        let bir = self.table_offset & 0x3;
+        writeln!(f, " Table Offset: {}/{}", table, bir)?;
+        let pba = self.pba_offset & 0xFFFC;
+        let pbir = self.pba_offset & 0x3;
+        write!(f, " PBA Offset: {}/{}", pba, pbir)?;
+
+        Ok(())
+    }
 }
 
 impl fmt::Display for PciDevice {
