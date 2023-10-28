@@ -6,6 +6,7 @@ use core::fmt::Write;
 use futures_util::StreamExt;
 
 use crate::block::Block;
+use crate::block::mbr::Mbr;
 use crate::drivers::block::virtio_blk::VirtioBlk;
 use crate::drivers::i8042::KeyboardStream;
 use crate::runtime::runtime;
@@ -33,6 +34,7 @@ pub async fn ios_shell() {
         match cmd {
             "echo" => writeln!(runtime().console.lock(), "{}", args).unwrap(),
             "read" => read(args).await,
+            "part" => part().await,
             _ => writeln!(runtime().console.lock(), "Command '{}' not found", cmd).unwrap(),
         }
     }
@@ -46,4 +48,13 @@ pub async fn read(args: &str) {
     block.read(buf.as_mut_slice(), args[0].parse().unwrap()).await.unwrap();
 
     writeln!(runtime().console.lock(), "Return: {:x?}", &buf).unwrap();
+}
+
+pub async fn part() {
+    let block = runtime().get::<VirtioBlk>().unwrap();
+
+    let mbr = Mbr::new(block).await.unwrap();
+    mbr.partitions().iter().enumerate().for_each({
+        |(i, p)| writeln!(runtime().console.lock(), "Partition {}: {:?}", i, p).unwrap()
+    })
 }
