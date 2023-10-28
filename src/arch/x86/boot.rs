@@ -13,7 +13,7 @@ use crate::main;
 
 use super::acpi::IdentityMappedAcpiMemory;
 use super::paging::PageMapper;
-use super::{gdt, interrupts, lapic, ioapic, pci, X86};
+use super::{gdt, interrupts, lapic, ioapic, pci, X86, CpuData};
 
 pub fn boot(page_mapper: PageMapper, acpi_table: Option<*const c_void>, fb: FrameBuffer) -> ! {
     let keyboard = PcKeyboard::new();
@@ -32,6 +32,7 @@ pub fn boot(page_mapper: PageMapper, acpi_table: Option<*const c_void>, fb: Fram
     unsafe { system.memory.lock().activate(); }
 
     Runtime::init(system, fb, keyboard);
+    CpuData::new(0);
 
     gdt::init();
     interrupts::init();

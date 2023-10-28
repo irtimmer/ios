@@ -1,6 +1,8 @@
+use alloc::boxed::Box;
+
 use spin::Mutex;
 
-use x86_64::instructions;
+use x86_64::{instructions, registers::model_specific::KernelGsBase, VirtAddr};
 
 use self::paging::PageMapper;
 
@@ -16,6 +18,28 @@ pub mod pci;
 pub mod gdt;
 
 mod efi;
+
+pub struct CpuData {
+    pub id: u32
+}
+
+impl CpuData {
+    pub fn new(id: u32) -> &'static Self {
+        let data = Box::leak(Box::new(Self {
+            id
+            }
+        }));
+
+        KernelGsBase::write(VirtAddr::from_ptr(data as *const Self));
+        data
+    }
+
+    #[inline(always)]
+    pub fn get() -> &'static mut Self {
+        let ptr = KernelGsBase::read();
+        return unsafe { &mut *ptr.as_mut_ptr() };
+    }
+}
 
 pub struct X86 {
     memory: Mutex<PageMapper>
