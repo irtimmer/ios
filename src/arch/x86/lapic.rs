@@ -1,6 +1,7 @@
 use core::fmt::Write;
 use core::mem;
 
+use alloc::boxed::Box;
 use spin::Once;
 
 use x2apic::lapic::{LocalApic, LocalApicBuilder, xapic_base};
@@ -9,9 +10,13 @@ use x86_64::structures::idt::InterruptStackFrame;
 
 use crate::runtime::runtime;
 
-use super::interrupts;
+use super::{interrupts, CpuData};
 
 static LOCAL_APIC: Once<LocalApic> = Once::new();
+
+pub struct Interrupts {
+    pub handlers: [Option<Box<dyn Fn()>>; 240 - 64]
+}
 
 pub fn init() {
     LOCAL_APIC.call_once(|| {
@@ -58,4 +63,9 @@ pub extern "x86-interrupt" fn timer_interrupt_handler(_: InterruptStackFrame) {
 
 pub extern "x86-interrupt" fn error_interrupt_handler(_: InterruptStackFrame) {
     panic!("LAPIC Error interrupt");
+}
+
+pub fn general_interrupt_handler(_stack_frame: InterruptStackFrame, index: u8, _error_code: Option<u64>) {
+    CpuData::get().interrupts.handlers[index as usize - 64].as_ref().map(|handler| handler());
+    unsafe { local_apic().end_of_interrupt() };
 }

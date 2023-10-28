@@ -1,7 +1,9 @@
 use spin::Once;
 
+use x86_64::set_general_handler;
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
 
+use super::lapic::general_interrupt_handler;
 use super::{lapic, ioapic};
 
 pub const IOAPIC_INTERRUPT_OFFSET: usize = 32;
@@ -27,6 +29,8 @@ pub fn init() {
         idt[ERROR_INTERRUPT_INDEX].set_handler_fn(lapic::error_interrupt_handler);
 
         idt[KEYBOARD_INTERRUPT_INDEX].set_handler_fn(ioapic::keyboard_interrupt_handler);
+
+        set_general_handler!(&mut idt, general_interrupt_handler, 64..240);
         idt
     }).load();
 
