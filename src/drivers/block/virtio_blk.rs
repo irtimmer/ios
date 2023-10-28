@@ -5,15 +5,16 @@ use async_trait::async_trait;
 
 use spin::Mutex;
 
+use crate::arch::system::System;
 use crate::block::Block;
 use crate::drivers::pci::PciDevice;
 use crate::drivers::virtio::pci::{DeviceStatus, VirtioPciDevice};
 use crate::drivers::virtio::virtq::{Virtq, Descriptor, VIRTQ_DESC_F_WRITE};
-use crate::runtime::Resource;
+use crate::runtime::{Resource, runtime};
 
 pub struct VirtioBlk {
     device: VirtioPciDevice<BlkConfig>,
-    queue: Mutex<Virtq>
+    queue: Arc<Mutex<Virtq>>
 }
 
 impl Resource for VirtioBlk {}
@@ -71,12 +72,32 @@ impl VirtioBlk {
         virtio.set_device_status(DeviceStatus::FEATURES_OK);
 
         let mut queue_handler = virtio.get_virtq_handler(0).ok_or("Virtqueue not found!")?;
+        queue_handler.set_msix_vector(0);
+
         let queue = Virtq::new(&mut queue_handler);
 
         let mut device = VirtioBlk {
             device: virtio,
-            queue: Mutex::new(queue)
+            queue: Arc::new(Mutex::new(queue))
         };
+
+        let dev_queue = device.queue.clone();
+        let vector = runtime().system.request_irq_handler(Box::new(move || {
+            unsafe { dev_queue.force_unlock(); }
+            dev_queue.lock().process();
+        })).unwrap();
+
+        let msix_idx = 0;
+        let entries = device.device.msix.entries(device.device.pci.bars[1].unwrap().as_ptr() as usize);
+
+        let processor = 0;
+        let edgetrigger = false;
+        let deassert = false;
+        entries[0].message_data = (vector as u32 & 0xFF)
+            | (if edgetrigger { 0 } else { 1 << 15 })
+            | (if deassert { 0 } else { 1 << 14 });
+        entries[0].message_address = 0xFEE00000 | (processor << 12);
+        entries[0].vector_control = 0;
 
         device.device.set_device_status(DeviceStatus::DRIVER_OK);
 

@@ -101,6 +101,7 @@ impl Default for CfgType {
 }
 
 pub struct VirtioPciDevice<S: 'static> {
+    pub pci: Arc<PciDevice>,
     common: &'static mut ComCfgRaw,
     isr_cfg: &'static mut IsrStatusRaw,
     notify_cfg: Notify,
@@ -175,6 +176,7 @@ impl<S> VirtioPciDevice<S> {
         });
 
         Ok(Self {
+            pci: device.clone(),
             common: common_cfg.ok_or("No common config found")?,
             isr_cfg: isr_cfg.ok_or("No ISR config found")?,
             notify_cfg: notify_cfg.ok_or("No notify config found")?,
