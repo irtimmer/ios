@@ -48,8 +48,24 @@ impl Console {
         match byte {
             b'\n' => {
                 self.pos += self.width - (self.pos % self.width);
+                if self.pos >= self.width * self.height {
+                    self.pos -= self.width;
+                    unsafe {
+                        core::ptr::copy(self.chars.as_ptr().add(self.width), self.chars.as_mut_ptr(), self.width * (self.height - 1));
+                    }
+
+                    for i in self.width * (self.height - 1)..self.width * self.height {
+                        self.chars[i] = ScreenChar { character: b' ' };
+                    }
+                    self.scroll();
+                }
             },
             byte => {
+                if self.pos == self.width * self.height {
+                    self.scroll();
+                    self.pos -= self.width;
+                }
+
                 self.chars[self.pos] = ScreenChar {
                     character: byte,
                 };
@@ -68,6 +84,15 @@ impl Console {
                 _ => self.write_byte(0xfe),
             }
 
+        }
+    }
+
+    pub fn scroll(&mut self) {
+        unsafe {
+            let row_size = self.fb.stride * (self.fb.bpp / 8) * self.font_height;
+            self.fb.buffer.copy_from(self.fb.buffer.add(row_size), (self.fb.stride * (self.fb.bpp / 8) * self.fb.height) - row_size);
+            core::ptr::copy(self.chars.as_ptr().add(self.width), self.chars.as_mut_ptr(), self.width * (self.height - 1));
+            self.draw_text(self.width * (self.height - 1), self.width * self.height);
         }
     }
     pub fn draw_text(&mut self, start: usize, end: usize) {
