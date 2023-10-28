@@ -4,6 +4,7 @@ use core::slice;
 use pci_types::{PciAddress, ConfigRegionAccess, PciHeader, EndpointHeader, MAX_BARS, Bar};
 
 use crate::arch::PciConfigRegion;
+use crate::arch::system::MemoryFlags;
 use crate::arch::system::System;
 use crate::runtime::runtime;
 
@@ -53,12 +54,12 @@ impl PciDevice {
             }
             match endpoint.bar(slot, &self.access) {
                 Some(Bar::Memory64 { address, size, prefetchable }) => {
-                    unsafe { runtime().system.map(address as usize, address as usize, size as usize); }
+                    unsafe { runtime().system.map(address as usize, address as usize, size as usize, MemoryFlags::WRITABLE).unwrap(); }
                     self.bars[slot as usize] = unsafe { Some(slice::from_raw_parts_mut(address as *mut u8, size as usize)) };
                     skip_next = true;
                 },
                 Some(Bar::Memory32 { address, size, prefetchable }) => {
-                    unsafe { runtime().system.map(address as usize, address as usize, size as usize); }
+                    unsafe { runtime().system.map(address as usize, address as usize, size as usize, MemoryFlags::WRITABLE); }
                     self.bars[slot as usize] = unsafe { Some(slice::from_raw_parts_mut(address as *mut u8, size as usize)) };
                 },
                 _ => {}

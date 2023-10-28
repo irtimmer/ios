@@ -4,6 +4,7 @@ use uefi::table::cfg::ACPI2_GUID;
 use uefi::table::{Boot, SystemTable};
 use uefi::{entry, Handle, Status};
 
+use crate::arch::system::MemoryFlags;
 use crate::arch::x86::boot::boot;
 use crate::arch::x86::paging::PageMapper;
 use crate::drivers::video::fb::FrameBuffer;
@@ -49,10 +50,10 @@ fn efi_main(_handle: Handle, system_table: SystemTable<Boot>) -> Status {
     let mut mapper = PageMapper::new(0);
     for entry in memory_map.entries() {
         unsafe {
-            if entry.ty == MemoryType::LOADER_CODE || entry.ty == MemoryType::LOADER_DATA || entry.ty == MemoryType::CONVENTIONAL {
-                mapper.map(entry.phys_start as usize, entry.phys_start as usize, entry.page_count as usize * PAGE_SIZE);
+            if entry.ty == MemoryType::LOADER_CODE || entry.ty == MemoryType::RUNTIME_SERVICES_CODE {
+                mapper.map(entry.phys_start as usize, entry.phys_start as usize, entry.page_count as usize * PAGE_SIZE, MemoryFlags::WRITABLE | MemoryFlags::EXECUTABLE).unwrap();
             } else {
-                mapper.map(entry.phys_start as usize, entry.phys_start as usize, entry.page_count as usize * PAGE_SIZE);
+                mapper.map(entry.phys_start as usize, entry.phys_start as usize, entry.page_count as usize * PAGE_SIZE, MemoryFlags::WRITABLE).unwrap();
             }
         };
     }

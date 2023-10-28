@@ -6,7 +6,7 @@ use x86_64::{instructions, registers::model_specific::KernelGsBase, VirtAddr};
 
 use self::{paging::PageMapper, lapic::Interrupts};
 
-use super::system::{System, MemoryMapError};
+use super::system::{System, MemoryMapError, MemoryFlags};
 
 pub mod acpi;
 pub mod boot;
@@ -61,8 +61,8 @@ impl System for X86 {
         })
     }
 
-    unsafe fn map(&self, from: usize, to: usize, length: usize) -> Result<(), MemoryMapError> {
-        self.memory.lock().map(from, to, length)?;
+    unsafe fn map(&self, from: usize, to: usize, length: usize, flags: MemoryFlags) -> Result<(), MemoryMapError> {
+        self.memory.lock().map(from, to, length, flags)?;
         Ok(())
     }
 

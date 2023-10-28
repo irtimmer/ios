@@ -5,7 +5,7 @@ use core::alloc::Layout;
 use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PageSize, PageTable, PageTableFlags, PhysFrame, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
 
-use crate::arch::system::MemoryMapError;
+use crate::arch::system::{MemoryMapError, MemoryFlags};
 
 #[derive(Default)]
 struct OffsetAllocatorFrameAllocation {
@@ -48,8 +48,15 @@ impl PageMapper {
         }
     }
 
-    pub unsafe fn map(&mut self, from: usize, to: usize, length: usize) -> Result<(), MemoryMapError> {
-        let flags = PageTableFlags::PRESENT | PageTableFlags::WRITABLE;
+    pub unsafe fn map(&mut self, from: usize, to: usize, length: usize, map_flags: MemoryFlags) -> Result<(), MemoryMapError> {
+        let mut flags = PageTableFlags::PRESENT;
+        if !map_flags.contains(MemoryFlags::EXECUTABLE) {
+            flags |= PageTableFlags::NO_EXECUTE;
+        }
+
+        if map_flags.contains(MemoryFlags::WRITABLE) {
+            flags |= PageTableFlags::WRITABLE;
+        }
 
         for i in 0..((length as u64) / Size4KiB::SIZE) {
             let start_address = from as u64 + i * Size4KiB::SIZE as u64;
