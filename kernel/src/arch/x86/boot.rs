@@ -76,9 +76,9 @@ extern "C" fn _start(info: &BootInfo) -> ! {
     unsafe { system.memory.lock().activate(); }
 
     Runtime::init(system, fb, keyboard);
-    CpuData::new(0);
+    let selectors = gdt::init();
+    CpuData::new(0, selectors);
 
-    gdt::init();
     interrupts::init();
     lapic::init();
 

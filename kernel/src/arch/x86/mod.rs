@@ -6,6 +6,7 @@ use x86_64::{instructions, registers::model_specific::KernelGsBase, VirtAddr};
 
 use crate::arch::system::PageMapper;
 
+use self::gdt::Selectors;
 use self::lapic::Interrupts;
 use self::paging::PageTable;
 
@@ -24,13 +25,15 @@ pub const KERNEL_ADDRESS_BASE: usize = 0xffff800000000000;
 
 pub struct CpuData {
     pub id: u32,
-    pub interrupts: Interrupts
+    pub interrupts: Interrupts,
+    pub selectors: Selectors
 }
 
 impl CpuData {
-    pub fn new(id: u32) -> &'static Self {
+    pub fn new(id: u32, selectors: Selectors) -> &'static Self {
         let data = Box::leak(Box::new(Self {
             id,
+            selectors,
             interrupts: Interrupts {
                 handlers: core::array::from_fn(|_| None)
             }
