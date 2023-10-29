@@ -77,6 +77,10 @@ impl PageMapper for PageTable {
             flags |= PageTableFlags::WRITABLE;
         }
 
+        if map_flags.contains(MemoryFlags::USER) {
+            flags |= PageTableFlags::USER_ACCESSIBLE;
+        }
+
         for i in 0..((length as u64) / Size4KiB::SIZE) {
             let start_address = from as u64 + i * Size4KiB::SIZE as u64;
             let start_frame = PhysFrame::<Size4KiB>::from_start_address(PhysAddr::new(start_address)).map_err(|_| MemoryMapError::InvalidAlignment(start_address))?;

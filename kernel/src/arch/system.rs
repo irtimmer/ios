@@ -7,7 +7,8 @@ use super::PageTable;
 bitflags! {
     pub struct MemoryFlags: u8 {
         const WRITABLE = 1 << 0;
-        const EXECUTABLE = 2 << 0;
+        const EXECUTABLE = 1 << 1;
+        const USER = 1 << 2;
     }
 }
 
