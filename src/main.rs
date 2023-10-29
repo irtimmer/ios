@@ -8,6 +8,7 @@
 mod arch;
 mod block;
 mod drivers;
+mod fs;
 mod runtime;
 mod shell;
 mod tasks;
