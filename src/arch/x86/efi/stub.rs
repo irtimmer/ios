@@ -49,13 +49,19 @@ fn efi_main(_handle: Handle, system_table: SystemTable<Boot>) -> Status {
     // Initialize new page table
     let mut mapper = PageMapper::new(0);
     for entry in memory_map.entries() {
-        unsafe {
-            if entry.ty == MemoryType::LOADER_CODE || entry.ty == MemoryType::RUNTIME_SERVICES_CODE {
-                mapper.map(entry.phys_start as usize, entry.phys_start as usize, entry.page_count as usize * PAGE_SIZE, MemoryFlags::WRITABLE | MemoryFlags::EXECUTABLE).unwrap();
-            } else {
-                mapper.map(entry.phys_start as usize, entry.phys_start as usize, entry.page_count as usize * PAGE_SIZE, MemoryFlags::WRITABLE).unwrap();
-            }
+        let flags = match entry.ty {
+            MemoryType::LOADER_CODE => MemoryFlags::WRITABLE | MemoryFlags::EXECUTABLE,
+            MemoryType::RUNTIME_SERVICES_CODE => MemoryFlags::EXECUTABLE,
+            MemoryType::CONVENTIONAL
+            | MemoryType::BOOT_SERVICES_CODE
+            | MemoryType::BOOT_SERVICES_DATA
+            | MemoryType::RUNTIME_SERVICES_DATA
+            | MemoryType::LOADER_DATA => MemoryFlags::WRITABLE,
+            MemoryType::ACPI_NON_VOLATILE
+            | MemoryType::ACPI_RECLAIM => MemoryFlags::empty(),
+            _ => continue
         };
+        unsafe { mapper.map(entry.phys_start as usize, entry.phys_start as usize, entry.page_count as usize * PAGE_SIZE, flags).unwrap(); }
     }
 
     boot(mapper, acpi_table, fb);
