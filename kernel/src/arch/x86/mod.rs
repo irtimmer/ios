@@ -4,7 +4,10 @@ use spin::Mutex;
 
 use x86_64::{instructions, registers::model_specific::KernelGsBase, VirtAddr};
 
-use self::{paging::PageMapper, lapic::Interrupts};
+use crate::arch::system::PageMapper;
+
+use self::lapic::Interrupts;
+use self::paging::PageTable;
 
 use super::system::{System, MemoryMapError, MemoryFlags};
 
@@ -45,7 +48,7 @@ impl CpuData {
 }
 
 pub struct X86 {
-    memory: Mutex<PageMapper>
+    memory: Mutex<PageTable>
 }
 
 impl System for X86 {
@@ -74,5 +77,9 @@ impl System for X86 {
         unsafe {
             asm!("mfence", options(nostack, nomem, preserves_flags));
         }
+    }
+
+    fn new_user_page_table(&self) -> super::PageTable {
+        unsafe { self.memory.lock().clone() }
     }
 }

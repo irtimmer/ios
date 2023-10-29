@@ -2,12 +2,12 @@ use alloc::alloc;
 
 use core::alloc::Layout;
 
-use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PageSize, PageTable, PageTableFlags, PhysFrame, Size4KiB};
+use x86_64::structures::paging::{FrameAllocator, Mapper, OffsetPageTable, Page, PageSize, PageTable as NativePageTable, PageTableFlags, PhysFrame, Size4KiB};
 use x86_64::{PhysAddr, VirtAddr};
 
-use crate::arch::system::{MemoryMapError, MemoryFlags};
+use crate::arch::system::{MemoryMapError, MemoryFlags, PageMapper};
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct OffsetAllocatorFrameAllocation {
     offset: usize,
 }
@@ -23,20 +23,20 @@ unsafe impl<S: PageSize> FrameAllocator<S> for OffsetAllocatorFrameAllocation {
     }
 }
 
-pub struct PageMapper {
+pub struct PageTable {
     alloc: OffsetAllocatorFrameAllocation,
     page_table: PhysFrame<Size4KiB>,
     mapper: OffsetPageTable<'static>,
 }
 
-impl PageMapper {
+impl PageTable {
     pub fn new(offset: u64) -> Self {
         let mut alloc = OffsetAllocatorFrameAllocation {
             offset: offset as usize,
         };
         let page_frame: PhysFrame<Size4KiB> = alloc.allocate_frame().unwrap();
         let ptr = VirtAddr::new(page_frame.start_address().as_u64() + offset).as_mut_ptr();
-        unsafe { *ptr = PageTable::new() };
+        unsafe { *ptr = NativePageTable::new() };
         let page_table = unsafe { &mut *ptr };
 
         let mapper = unsafe { OffsetPageTable::new(page_table, VirtAddr::new(offset)) };
@@ -48,7 +48,26 @@ impl PageMapper {
         }
     }
 
-    pub unsafe fn map(&mut self, from: usize, to: usize, length: usize, map_flags: MemoryFlags) -> Result<(), MemoryMapError> {
+    pub unsafe fn clone(&self) -> Self {
+        let mut alloc = self.alloc.clone();
+        let page_frame: PhysFrame<Size4KiB> = alloc.allocate_frame().unwrap();
+        let ptr: *mut NativePageTable = VirtAddr::new(page_frame.start_address().as_u64() + self.alloc.offset as u64).as_mut_ptr();
+        let kernel_ptr: *const NativePageTable = VirtAddr::new(self.page_table.start_address().as_u64() + self.alloc.offset as u64).as_mut_ptr();
+        unsafe { ptr.copy_from(kernel_ptr, 1) };
+        let page_table = unsafe { &mut *ptr };
+
+        let mapper = unsafe { OffsetPageTable::new(page_table, VirtAddr::new(self.alloc.offset as u64)) };
+
+        Self {
+            alloc,
+            page_table: page_frame,
+            mapper
+        }
+    }
+}
+
+impl PageMapper for PageTable {
+    unsafe fn map(&mut self, from: usize, to: usize, length: usize, map_flags: MemoryFlags) -> Result<(), MemoryMapError> {
         let mut flags = PageTableFlags::PRESENT;
         if !map_flags.contains(MemoryFlags::EXECUTABLE) {
             flags |= PageTableFlags::NO_EXECUTE;
@@ -69,7 +88,7 @@ impl PageMapper {
     }
 
     #[inline(always)]
-    pub unsafe fn activate(&self) {
+    unsafe fn activate(&self) {
         x86_64::registers::control::Cr3::write(
             self.page_table,
             x86_64::registers::control::Cr3Flags::empty(),

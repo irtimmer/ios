@@ -6,14 +6,14 @@ use x86_64::VirtAddr;
 
 use spin::Mutex;
 
-use crate::arch::system::{System, MemoryFlags};
+use crate::arch::system::{PageMapper, System, MemoryFlags};
 use crate::drivers::i8042::PcKeyboard;
 use crate::drivers::video::fb::FrameBuffer;
 use crate::runtime::{Runtime, runtime};
 use crate::{main, ALLOCATOR};
 
 use super::acpi::IdentityMappedAcpiMemory;
-use super::paging::PageMapper;
+use super::paging::PageTable;
 use super::{gdt, interrupts, lapic, ioapic, pci, X86, CpuData, KERNEL_ADDRESS_BASE};
 
 const PAGE_SIZE: usize = 4096;
@@ -35,7 +35,7 @@ extern "C" fn _start(info: &BootInfo) -> ! {
     }
 
     // Initialize new page table
-    let mut page_mapper = PageMapper::new(KERNEL_ADDRESS_BASE as u64);
+    let mut page_mapper = PageTable::new(KERNEL_ADDRESS_BASE as u64);
     for entry in info.memory_map.entries() {
         let flags = match entry.ty {
             MemoryType::LOADER_CODE => MemoryFlags::WRITABLE | MemoryFlags::EXECUTABLE,
