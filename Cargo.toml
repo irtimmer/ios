@@ -1,25 +1,3 @@
-cargo-features = ["per-package-target"]
-
-[package]
-name = "ios"
-version = "0.1.0"
-edition = "2021"
-default-target = "x86_64-unknown-uefi"
-
-[dependencies]
-ahash = { version = "0.8", default-features = false }
-acpi = "5.0.0"
-async-trait = "0.1.72"
-bitflags = "2.4.0"
-crossbeam-queue = { version = "0.2.1", default-features = false, features = ["alloc"] }
-futures-util = { version = "0.3.4", default-features = false, features = ["alloc"] }
-pc-keyboard = "0.7.0"
-pci_types = "0.5.0"
-uart_16550 = "0.2.0"
-uefi = "0.24.0"
-hashbrown = { version = "0.14", default-features = false }
-linked_list_allocator = "0.9.0"
-noto-sans-mono-bitmap = { version = "0.2.0", features = ["size_16"] }
-x86_64 = "0.14.11"
-x2apic = "0.4.3"
-spin = { version = "0.9.8" }
+[workspace]
+resolver = "2"
+members = ["kernel"]
