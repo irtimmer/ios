@@ -14,7 +14,7 @@ use crate::{main, ALLOCATOR};
 
 use super::acpi::IdentityMappedAcpiMemory;
 use super::paging::PageMapper;
-use super::{gdt, interrupts, lapic, ioapic, pci, X86, CpuData};
+use super::{gdt, interrupts, lapic, ioapic, pci, X86, CpuData, KERNEL_ADDRESS_BASE};
 
 const PAGE_SIZE: usize = 4096;
 
@@ -27,7 +27,7 @@ extern "C" fn _start(info: &BootInfo) -> ! {
             | MemoryType::BOOT_SERVICES_CODE
             | MemoryType::BOOT_SERVICES_DATA => {
                 if entry.page_count > 0x1000 {
-                    unsafe { ALLOCATOR.lock().init(entry.phys_start as usize, entry.page_count as usize * PAGE_SIZE) };
+                    unsafe { ALLOCATOR.lock().init(entry.phys_start as usize + KERNEL_ADDRESS_BASE, entry.page_count as usize * PAGE_SIZE) };
                 }
             }
             _ => {}
@@ -35,7 +35,7 @@ extern "C" fn _start(info: &BootInfo) -> ! {
     }
 
     // Initialize new page table
-    let mut page_mapper = PageMapper::new(0);
+    let mut page_mapper = PageMapper::new(KERNEL_ADDRESS_BASE as u64);
     for entry in info.memory_map.entries() {
         let flags = match entry.ty {
             MemoryType::LOADER_CODE => MemoryFlags::WRITABLE | MemoryFlags::EXECUTABLE,
@@ -49,7 +49,7 @@ extern "C" fn _start(info: &BootInfo) -> ! {
             | MemoryType::ACPI_RECLAIM => MemoryFlags::empty(),
             _ => continue
         };
-        unsafe { page_mapper.map(entry.phys_start as usize, entry.phys_start as usize, entry.page_count as usize * PAGE_SIZE, flags).unwrap(); }
+        unsafe { page_mapper.map(entry.phys_start as usize, entry.phys_start as usize + KERNEL_ADDRESS_BASE, entry.page_count as usize * PAGE_SIZE, flags).unwrap(); }
     }
 
     let keyboard = PcKeyboard::new();
@@ -65,12 +65,12 @@ extern "C" fn _start(info: &BootInfo) -> ! {
         height: info.framebuffer.height,
         stride: info.framebuffer.stride,
         bpp: info.framebuffer.bpp,
-        buffer: info.framebuffer.buffer
+        buffer: info.framebuffer.buffer.wrapping_byte_add(KERNEL_ADDRESS_BASE)
     };
 
     let fb_len = fb.height * fb.stride * (fb.bpp / 8);
     unsafe {
-        system.map(fb.buffer as usize, fb.buffer as usize, fb_len, MemoryFlags::WRITABLE).unwrap();
+        system.map(info.framebuffer.buffer as usize, fb.buffer as usize, fb_len, MemoryFlags::WRITABLE).unwrap();
     }
 
     unsafe { system.memory.lock().activate(); }
@@ -88,11 +88,12 @@ extern "C" fn _start(info: &BootInfo) -> ! {
 
         if let InterruptModel::Apic(model) = platform_info.interrupt_model {
             for ioapic in model.io_apics.iter() {
+                let ioapic_address = ioapic.address as u64 + KERNEL_ADDRESS_BASE as u64;
                 unsafe {
-                    runtime().system.map(ioapic.address as usize, ioapic.address as usize, 4096, MemoryFlags::WRITABLE).unwrap();
-                    x86_64::instructions::tlb::flush(VirtAddr::new(ioapic.address as u64));
+                    runtime().system.map(ioapic.address as usize, ioapic_address as usize, 4096, MemoryFlags::WRITABLE).unwrap();
+                    x86_64::instructions::tlb::flush(VirtAddr::new(ioapic_address));
                 }
-                ioapic::init(ioapic.address as u64, ioapic.id);
+                ioapic::init(ioapic_address, ioapic.id);
             }
         }
     }

@@ -1,5 +1,7 @@
 mod x86;
 
+pub use x86::KERNEL_ADDRESS_BASE;
+
 pub mod system;
 
 pub type Arch = x86::X86;

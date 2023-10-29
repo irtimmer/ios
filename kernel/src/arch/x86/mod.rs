@@ -17,6 +17,8 @@ pub mod paging;
 pub mod pci;
 pub mod gdt;
 
+pub const KERNEL_ADDRESS_BASE: usize = 0xffff800000000000;
+
 pub struct CpuData {
     pub id: u32,
     pub interrupts: Interrupts

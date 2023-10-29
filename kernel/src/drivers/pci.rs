@@ -3,6 +3,7 @@ use core::slice;
 
 use pci_types::{PciAddress, ConfigRegionAccess, PciHeader, EndpointHeader, MAX_BARS, Bar};
 
+use crate::arch::KERNEL_ADDRESS_BASE;
 use crate::arch::PciConfigRegion;
 use crate::arch::system::MemoryFlags;
 use crate::arch::system::System;
@@ -54,13 +55,15 @@ impl PciDevice {
             }
             match endpoint.bar(slot, &self.access) {
                 Some(Bar::Memory64 { address, size, prefetchable }) => {
-                    unsafe { runtime().system.map(address as usize, address as usize, size as usize, MemoryFlags::WRITABLE).unwrap(); }
-                    self.bars[slot as usize] = unsafe { Some(slice::from_raw_parts_mut(address as *mut u8, size as usize)) };
+                    let virt_address = address as usize + KERNEL_ADDRESS_BASE;
+                    unsafe { runtime().system.map(address as usize, virt_address, size as usize, MemoryFlags::WRITABLE).unwrap(); }
+                    self.bars[slot as usize] = unsafe { Some(slice::from_raw_parts_mut(virt_address as *mut u8, size as usize)) };
                     skip_next = true;
                 },
                 Some(Bar::Memory32 { address, size, prefetchable }) => {
-                    unsafe { runtime().system.map(address as usize, address as usize, size as usize, MemoryFlags::WRITABLE); }
-                    self.bars[slot as usize] = unsafe { Some(slice::from_raw_parts_mut(address as *mut u8, size as usize)) };
+                    let virt_address = address as usize + KERNEL_ADDRESS_BASE;
+                    unsafe { runtime().system.map(address as usize, virt_address, size as usize, MemoryFlags::WRITABLE); }
+                    self.bars[slot as usize] = unsafe { Some(slice::from_raw_parts_mut(virt_address as *mut u8, size as usize)) };
                 },
                 _ => {}
             }

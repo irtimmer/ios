@@ -8,6 +8,8 @@ use core::task::{Poll, Context};
 use futures_util::future::BoxFuture;
 use futures_util::task::AtomicWaker;
 
+use crate::arch::KERNEL_ADDRESS_BASE;
+
 use super::pci::ComCfgRaw;
 
 pub const VIRTQ_DESC_F_NEXT: u16 = 1 << 0;
@@ -193,6 +195,7 @@ impl<const COUNT: usize> StaticQueue<COUNT> {
         let next_free = self.descriptors[self.descr_next].next as usize;
 
         self.descriptors[self.descr_next] = *desc;
+        self.descriptors[self.descr_next].address -= KERNEL_ADDRESS_BASE as u64;
         if self.avail_wrap_count {
             self.descriptors[self.descr_next].flags |= VIRTQ_DESC_F_AVAIL;
             self.descriptors[self.descr_next].flags &= !VIRTQ_DESC_F_USED;
@@ -305,9 +308,9 @@ impl Virtq {
 
         let (desc_ring_addr, avail_ring_addr, used_ring_addr) = queues.get_addresses();
 
-        handler.set_desc_ring_addr(desc_ring_addr);
-        handler.set_avail_ring_addr(avail_ring_addr);
-        handler.set_used_ring_addr(used_ring_addr);
+        handler.set_desc_ring_addr(desc_ring_addr - KERNEL_ADDRESS_BASE as u64);
+        handler.set_avail_ring_addr(avail_ring_addr - KERNEL_ADDRESS_BASE as u64);
+        handler.set_used_ring_addr(used_ring_addr - KERNEL_ADDRESS_BASE as u64);
         handler.enable_queue();
 
         Self {

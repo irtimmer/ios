@@ -1,5 +1,6 @@
 #![no_main]
 #![no_std]
+#![feature(pointer_byte_offsets)]
 
 use core::arch::asm;
 use core::panic::PanicInfo;
@@ -13,11 +14,16 @@ use uefi::proto::console::gop::GraphicsOutput;
 use uefi::table::cfg::ACPI2_GUID;
 
 use x86_64::instructions;
+use x86_64::registers::control::{Cr0, Cr0Flags, Cr3};
+use x86_64::registers::model_specific::{Efer, EferFlags};
+use x86_64::structures::paging::PageTable;
 
 use xmas_elf::ElfFile;
 use xmas_elf::dynamic::Tag;
 use xmas_elf::program::{Type, SegmentData};
 use xmas_elf::sections::Rela;
+
+pub const KERNEL_ADDRESS_BASE: usize = 0xffff800000000000;
 
 #[macro_export]
 macro_rules! include_bytes_aligned {
@@ -113,7 +119,7 @@ fn main(_handle: Handle, system_table: SystemTable<Boot>) -> Status {
                     match rela.get_type() {
                         8 => {
                             let ptr = kernel_address.wrapping_add(rela.get_offset()) as *mut u64;
-                            unsafe { *ptr = kernel_address.wrapping_add(rela.get_addend()) };
+                            unsafe { *ptr = kernel_address.wrapping_add(rela.get_addend() + KERNEL_ADDRESS_BASE as u64) };
                         },
                         _ => panic!("Unsupported relocation type: {}", rela.get_type())
                     }
@@ -127,13 +133,30 @@ fn main(_handle: Handle, system_table: SystemTable<Boot>) -> Status {
     let (_, memory_map) = system_table.exit_boot_services();
 
     unsafe {
+        Cr0::update(|f| f.remove(Cr0Flags::WRITE_PROTECT));
+        Efer::update(|f| f.remove(EferFlags::NO_EXECUTE_ENABLE));
+        let (table_frame, table_flags) = Cr3::read();
+        let table: &mut PageTable = core::mem::transmute(table_frame.start_address().as_u64() as *const PageTable);
+        for i in 0..256 {
+            table[i + 256] = table[i].clone();
+        }
+        Cr3::write(table_frame, table_flags);
+
+        asm!("
+            # Move stack pointer and instruction pointer to upper half of memory
+            mov r13, {}
+            add rsp, r13
+        ", in(reg) KERNEL_ADDRESS_BASE);
+        Cr0::update(|f| f.extend(Cr0Flags::WRITE_PROTECT));
+        Efer::update(|f| f.extend(EferFlags::NO_EXECUTE_ENABLE));
+
         let info = BootInfo {
             framebuffer: fb,
             acpi_table: acpi_table,
             memory_map: memory_map,
         };
 
-        asm!("jmp {}", in(reg) kernel_pointer.wrapping_add(entry_point), in("rdi") &info as *const _ as u64);
+        asm!("jmp {}", in(reg) kernel_pointer.wrapping_add(entry_point).wrapping_add(KERNEL_ADDRESS_BASE), in("rdi") &info as *const _ as u64);
     }
 
     Status::ABORTED
