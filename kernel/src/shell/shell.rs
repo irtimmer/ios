@@ -7,12 +7,15 @@ use core::future;
 
 use futures_util::StreamExt;
 
+use spin::RwLock;
+
 use crate::block::Block;
 use crate::block::mbr::Mbr;
 use crate::drivers::block::virtio_blk::VirtioBlk;
 use crate::drivers::i8042::KeyboardStream;
 use crate::fs::FileSystem;
 use crate::fs::vfat::VFat16;
+use crate::process::{Process, Thread};
 use crate::runtime::runtime;
 
 async fn read_line(kbd: &mut KeyboardStream<'_>) -> String {
@@ -41,6 +44,7 @@ pub async fn ios_shell() {
             "part" => part().await,
             "ls" => ls().await,
             "cat" => cat(args).await,
+            "process" => process().await,
             _ => writeln!(runtime().console.lock(), "Command '{}' not found", cmd).unwrap(),
         }
     }
@@ -93,4 +97,13 @@ pub async fn cat(args: &str) {
     let mut buf = [0u8; 512];
     let len = file.read(&mut buf).await.unwrap();
     runtime().console.lock().write_str(&String::from_utf8_lossy(&buf[0..len])).unwrap();
+}
+
+pub async fn process() {
+    let mut process = Process::new();
+    process.load();
+    let process = Arc::new(RwLock::new(process));
+
+    let thread = Thread::new(process);
+    thread.activate();
 }
