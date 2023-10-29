@@ -1,5 +1,7 @@
 #![feature(abi_x86_interrupt)]
 #![feature(core_intrinsics)]
+#![feature(fn_align)]
+#![feature(naked_functions)]
 #![feature(pointer_byte_offsets)]
 
 #![no_main]
@@ -9,6 +11,7 @@ mod arch;
 mod block;
 mod drivers;
 mod fs;
+mod process;
 mod runtime;
 mod shell;
 mod tasks;
