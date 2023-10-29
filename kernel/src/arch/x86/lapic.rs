@@ -1,3 +1,4 @@
+use core::arch::asm;
 use core::fmt::Write;
 use core::mem;
 
@@ -11,6 +12,7 @@ use x86_64::structures::idt::InterruptStackFrame;
 use crate::runtime::runtime;
 
 use super::{interrupts, CpuData};
+use super::threads::Context;
 
 static LOCAL_APIC: Once<LocalApic> = Once::new();
 
@@ -54,10 +56,35 @@ pub extern "x86-interrupt" fn spurious_interrupt_handler(_: InterruptStackFrame)
     }
 }
 
-pub extern "x86-interrupt" fn timer_interrupt_handler(_: InterruptStackFrame) {
+#[naked]
+pub unsafe extern fn timer_interrupt_handler() -> ! {
+    asm!(r#"
+        push r15
+        push r14
+        push r13
+        push r12
+        push r11
+        push r10
+        push r9
+        push r8
+        push rdi
+        push rsi
+        push rdx
+        push rcx
+        push rbx
+        push rax
+        push rbp
+        mov rdi, rsp
+        sub rsp, 0x800
+        jmp {}
+    "#, sym timer_interrupt, options(noreturn));
+}
+
+extern "C" fn timer_interrupt(ctx: &Context) {
     write!(runtime().console.lock(), ".").unwrap();
     unsafe {
         local_apic().end_of_interrupt();
+        ctx.restore();
     }
 }
 

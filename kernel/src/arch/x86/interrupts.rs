@@ -1,6 +1,6 @@
 use spin::Once;
 
-use x86_64::set_general_handler;
+use x86_64::{set_general_handler, VirtAddr};
 use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 use super::lapic::general_interrupt_handler;
@@ -26,7 +26,7 @@ pub fn init() {
         idt.double_fault.set_handler_fn(double_fault_handler);
 
         idt[SPURIOUS_INTERRUPT_INDEX].set_handler_fn(lapic::spurious_interrupt_handler);
-        idt[TIMER_INTERRUPT_INDEX].set_handler_fn(lapic::timer_interrupt_handler);
+        unsafe { idt[TIMER_INTERRUPT_INDEX].set_handler_addr(VirtAddr::new(lapic::timer_interrupt_handler as u64)) };
         idt[ERROR_INTERRUPT_INDEX].set_handler_fn(lapic::error_interrupt_handler);
 
         idt[KEYBOARD_INTERRUPT_INDEX].set_handler_fn(ioapic::keyboard_interrupt_handler);
