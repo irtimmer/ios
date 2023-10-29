@@ -1,7 +1,7 @@
 use spin::Once;
 
 use x86_64::set_general_handler;
-use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame};
+use x86_64::structures::idt::{InterruptDescriptorTable, InterruptStackFrame, PageFaultErrorCode};
 
 use super::lapic::general_interrupt_handler;
 use super::{lapic, ioapic};
@@ -22,6 +22,7 @@ pub fn init() {
         idt.stack_segment_fault.set_handler_fn(stack_segment_handler);
         idt.alignment_check.set_handler_fn(aligment_check_handler);
         idt.cp_protection_exception.set_handler_fn(cp_protection_handler);
+        idt.page_fault.set_handler_fn(page_fault_handler);
         idt.double_fault.set_handler_fn(double_fault_handler);
 
         idt[SPURIOUS_INTERRUPT_INDEX].set_handler_fn(lapic::spurious_interrupt_handler);
@@ -55,4 +56,20 @@ extern "x86-interrupt" fn cp_protection_handler(_: InterruptStackFrame, error_co
 
 extern "x86-interrupt" fn double_fault_handler(_: InterruptStackFrame, error_code: u64) -> ! {
     panic!("Double Fault {}", error_code);
+}
+
+extern "x86-interrupt" fn page_fault_handler(stack_frame: InterruptStackFrame, error_code: PageFaultErrorCode) {
+    use core::fmt::Write;
+    use uart_16550::SerialPort;
+    use x86_64::registers::control::Cr2;
+    use crate::arch::Arch;
+    use crate::arch::system::System;
+
+    let mut serial = unsafe { SerialPort::new(0x3f8) };
+    serial.init();
+
+    writeln!(serial, "Page Fault {:?}", error_code).unwrap();
+    writeln!(serial, "Accessed Address: {:?}", Cr2::read()).unwrap();
+    writeln!(serial, "{:#?}", stack_frame).unwrap();
+    loop { Arch::sleep() }
 }
