@@ -17,8 +17,6 @@ pub mod paging;
 pub mod pci;
 pub mod gdt;
 
-mod efi;
-
 pub struct CpuData {
     pub id: u32,
     pub interrupts: Interrupts

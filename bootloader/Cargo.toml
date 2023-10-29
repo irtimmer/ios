@@ -1,0 +1,12 @@
+cargo-features = ["per-package-target"]
+
+[package]
+name = "bootloader"
+version = "0.1.0"
+edition = "2021"
+default-target = "x86_64-unknown-uefi"
+
+[dependencies]
+uefi = "0.24.0"
+xmas-elf = "0.8"
+x86_64 = "0.14.11"
