@@ -26,6 +26,11 @@ pub trait System {
     fn new_user_page_table(&self) -> PageTable;
 }
 
+pub trait ThreadContext {
+    fn new(rip: u64, stack: u64) -> Self;
+    unsafe fn activate(&self) -> !;
+}
+
 pub trait PageMapper {
     unsafe fn map(&mut self, from: usize, to: usize, length: usize, map_flags: MemoryFlags) -> Result<(), MemoryMapError>;
     unsafe fn activate(&self);
