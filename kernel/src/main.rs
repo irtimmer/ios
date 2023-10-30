@@ -1,4 +1,5 @@
 #![feature(abi_x86_interrupt)]
+#![feature(allocator_api)]
 #![feature(core_intrinsics)]
 #![feature(fn_align)]
 #![feature(naked_functions)]
@@ -58,4 +59,10 @@ fn main() -> ! {
         executor.run_ready_tasks();
         Arch::sleep();
     }
+}
+
+fn main_cpu(cpu_id: u32) -> ! {
+    writeln!(runtime().console.lock(), "Booted CPU: {}", cpu_id).unwrap();
+
+    loop { Arch::sleep() }
 }

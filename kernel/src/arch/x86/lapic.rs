@@ -81,6 +81,12 @@ pub unsafe extern fn timer_interrupt_handler() -> ! {
 }
 
 extern "C" fn timer_interrupt(ctx: &Context) {
+    unsafe {
+        if !local_apic().is_bsp() {
+            ctx.restore();
+        }
+    }
+
     {
         let mut thread = runtime().scheduler.get_current_context();
         thread.state = ThreadState::Paused(ctx.clone());

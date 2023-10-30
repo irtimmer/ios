@@ -1,5 +1,7 @@
 use acpi::{AcpiTables, PlatformInfo, InterruptModel};
 
+use core::ops::DerefMut;
+
 use bootloader::{BootInfo, MemoryType};
 
 use x86_64::VirtAddr;
@@ -10,10 +12,11 @@ use crate::arch::system::{PageMapper, System, MemoryFlags};
 use crate::drivers::i8042::PcKeyboard;
 use crate::drivers::video::fb::FrameBuffer;
 use crate::runtime::{Runtime, runtime};
-use crate::{main, ALLOCATOR};
+use crate::{main, main_cpu, ALLOCATOR};
 
 use super::acpi::IdentityMappedAcpiMemory;
 use super::paging::PageTable;
+use super::smp::{boot_cpu, setup_boot_code};
 use super::{gdt, interrupts, lapic, ioapic, pci, X86, CpuData, KERNEL_ADDRESS_BASE};
 
 const PAGE_SIZE: usize = 4096;
@@ -86,6 +89,11 @@ extern "C" fn _start(info: &BootInfo) -> ! {
         let acpi_table = unsafe { AcpiTables::from_rsdp(IdentityMappedAcpiMemory::default(), acpi_table as usize).unwrap() };
         let platform_info = PlatformInfo::new(&acpi_table).unwrap();
 
+        setup_boot_code(runtime().system.memory.lock().deref_mut());
+        for proc in platform_info.processor_info.unwrap().application_processors.iter() {
+            boot_cpu(proc.processor_uid, proc.local_apic_id);
+        }
+
         if let InterruptModel::Apic(model) = platform_info.interrupt_model {
             for ioapic in model.io_apics.iter() {
                 let ioapic_address = ioapic.address as u64 + KERNEL_ADDRESS_BASE as u64;
@@ -101,4 +109,14 @@ extern "C" fn _start(info: &BootInfo) -> ! {
     pci::init();
 
     main();
+}
+
+pub fn start_cpu(cpu_id: u32) -> ! {
+    let selectors = gdt::init();
+    CpuData::new(cpu_id, selectors);
+
+    interrupts::init();
+    lapic::init();
+
+    main_cpu(cpu_id);
 }

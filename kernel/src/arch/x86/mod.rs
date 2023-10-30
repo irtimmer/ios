@@ -20,6 +20,7 @@ pub mod lapic;
 pub mod paging;
 pub mod pci;
 pub mod gdt;
+pub mod smp;
 pub mod threads;
 
 pub const KERNEL_ADDRESS_BASE: usize = 0xffff800000000000;

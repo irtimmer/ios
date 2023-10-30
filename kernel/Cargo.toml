@@ -25,3 +25,7 @@ noto-sans-mono-bitmap = { version = "0.2.0", features = ["size_16"] }
 x86_64 = "0.14.11"
 x2apic = "0.4.3"
 spin = { version = "0.9.8", features = ["lock_api"] }
+
+[build-dependencies]
+anyhow = "1"
+llvm-tools = "0.1"
