@@ -7,8 +7,11 @@ use core::future;
 
 use futures_util::StreamExt;
 
+use humansize::SizeFormatter;
+
 use spin::RwLock;
 
+use crate::ALLOCATOR;
 use crate::block::Block;
 use crate::block::mbr::Mbr;
 use crate::drivers::block::virtio_blk::VirtioBlk;
@@ -45,6 +48,7 @@ pub async fn ios_shell() {
             "ls" => ls().await,
             "cat" => cat(args).await,
             "process" => process().await,
+            "mem" => mem(),
             _ => writeln!(runtime().console.lock(), "Command '{}' not found", cmd).unwrap(),
         }
     }
@@ -106,4 +110,12 @@ pub async fn process() {
 
     let thread = Thread::new(process);
     thread.activate();
+}
+
+pub fn mem() {
+    let (used, free) = {
+        let allocator = ALLOCATOR.lock();
+        (allocator.used(), allocator.free())
+    };
+    writeln!(runtime().console.lock(), "Memory {}/{}", SizeFormatter::new(used, humansize::DECIMAL), SizeFormatter::new(free, humansize::DECIMAL)).unwrap();
 }
