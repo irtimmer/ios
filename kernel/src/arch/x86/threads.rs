@@ -60,6 +60,7 @@ impl Context {
 
 #[derive(Clone)]
 pub enum ThreadState {
+    Running,
     Paused(Context),
     Starting(u64, u64)
 }
@@ -69,8 +70,13 @@ impl ThreadContext for ThreadState {
         Self::Starting(ip, sp)
     }
 
+    fn running() -> Self {
+        Self::Running
+    }
+
     unsafe fn activate(&self) -> ! {
         match self {
+            ThreadState::Running => panic!("Thread is already running"),
             ThreadState::Paused(ctx) => ctx.restore(),
             ThreadState::Starting(ip, sp) => {
                 let selectors = &CpuData::get().selectors;

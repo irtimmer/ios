@@ -12,7 +12,7 @@ use x86_64::structures::idt::InterruptStackFrame;
 use crate::runtime::runtime;
 
 use super::{interrupts, CpuData};
-use super::threads::Context;
+use super::threads::{Context, ThreadState};
 
 static LOCAL_APIC: Once<LocalApic> = Once::new();
 
@@ -81,10 +81,14 @@ pub unsafe extern fn timer_interrupt_handler() -> ! {
 }
 
 extern "C" fn timer_interrupt(ctx: &Context) {
-    write!(runtime().console.lock(), ".").unwrap();
+    {
+        let mut thread = runtime().scheduler.get_current_context();
+        thread.state = ThreadState::Paused(ctx.clone());
+    }
+
     unsafe {
         local_apic().end_of_interrupt();
-        ctx.restore();
+        runtime().scheduler.run_next();
     }
 }
 

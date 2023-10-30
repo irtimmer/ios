@@ -13,6 +13,7 @@ mod drivers;
 mod fs;
 mod process;
 mod runtime;
+mod scheduler;
 mod shell;
 mod tasks;
 

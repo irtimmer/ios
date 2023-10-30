@@ -28,6 +28,7 @@ pub trait System {
 
 pub trait ThreadContext {
     fn new(rip: u64, stack: u64) -> Self;
+    fn running() -> Self;
     unsafe fn activate(&self) -> !;
 }
 

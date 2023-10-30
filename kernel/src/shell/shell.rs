@@ -109,7 +109,7 @@ pub async fn process() {
     let process = Arc::new(RwLock::new(process));
 
     let thread = Thread::new(process);
-    thread.activate();
+    runtime().scheduler.threads.write().push(thread);
 }
 
 pub fn mem() {
