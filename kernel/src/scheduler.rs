@@ -11,7 +11,7 @@ use crate::arch::system::ThreadContext;
 use crate::process::{Thread, Process};
 
 pub struct Scheduler {
-    threads: RwLock<Vec<Thread>>,
+    pub threads: RwLock<Vec<Thread>>,
     cur_thread: Mutex<usize>,
 }
 

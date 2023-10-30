@@ -1,3 +1,4 @@
+use alloc::string::{String, ToString};
 use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
@@ -18,6 +19,7 @@ pub struct Process {
 }
 
 pub struct Thread {
+    pub name: String,
     process: Arc<RwLock<Process>>,
     pub state: ThreadState,
     _stack: Vec<u8>
@@ -45,13 +47,14 @@ impl Process {
 impl Thread {
     pub fn new_current(process: Arc<RwLock<Process>>) -> Self {
         Self {
+            name: "kernel".to_string(),
             process,
             state: ThreadState::running(),
             _stack: Vec::with_capacity(0)
         }
     }
 
-    pub fn new(process: Arc<RwLock<Process>>) -> Self {
+    pub fn new(process: Arc<RwLock<Process>>, name: &str) -> Self {
         let stack = vec![0; 1024 * 1024 * 10];
         let address = (userspace_prog_1 as *const u8).wrapping_byte_sub(KERNEL_ADDRESS_BASE) as usize;
         unsafe {
@@ -62,6 +65,7 @@ impl Thread {
         let state = ThreadState::new(PROCCESS_ADDR as u64, STACK_ADDR as u64 + stack.len() as u64);
 
         Self {
+            name: name.to_string(),
             process,
             state,
             _stack: stack

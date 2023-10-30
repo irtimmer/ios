@@ -48,6 +48,7 @@ pub async fn ios_shell() {
             "ls" => ls().await,
             "cat" => cat(args).await,
             "process" => process().await,
+            "ps" => ps().await,
             "mem" => mem(),
             _ => writeln!(runtime().console.lock(), "Command '{}' not found", cmd).unwrap(),
         }
@@ -108,8 +109,15 @@ pub async fn process() {
     process.load();
     let process = Arc::new(RwLock::new(process));
 
-    let thread = Thread::new(process);
+    let thread = Thread::new(process, "process");
     runtime().scheduler.threads.write().push(thread);
+}
+
+pub async fn ps() {
+    let threads = runtime().scheduler.threads.read();
+    for thread in threads.iter() {
+        writeln!(runtime().console.lock(), "{:?}", thread.name).unwrap();
+    }
 }
 
 pub fn mem() {
