@@ -1,5 +1,7 @@
 use core::arch::asm;
 use core::fmt::Write;
+use core::slice;
+use core::str;
 
 use x86_64::VirtAddr;
 use x86_64::registers::model_specific::{Efer, EferFlags, Star, LStar, SFMask};
@@ -41,6 +43,15 @@ unsafe extern fn _handle_syscall() {
     "#, sym handle_syscall, options(noreturn));
 }
 
-extern "C" fn handle_syscall(_: u64) {
-    runtime().console.lock().write_char('.').unwrap();
+extern "C" fn handle_syscall(instr: u64, arg1: u64, arg2: u64) {
+    match instr {
+        1 => {
+            let buffer = unsafe { slice::from_raw_parts(arg1 as *const u8, arg2 as usize) };
+            let string = str::from_utf8(buffer).unwrap();
+            runtime().console.lock().write_str(string).unwrap();
+        },
+        _ => {
+            writeln!(runtime().console.lock(), "HELP!! {}", instr).unwrap();
+        }
+    }
 }
