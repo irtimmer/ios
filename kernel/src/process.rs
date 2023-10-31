@@ -55,11 +55,11 @@ impl Thread {
     }
 
     pub fn new(process: Arc<RwLock<Process>>, name: &str) -> Self {
-        let stack = vec![0; 1024 * 1024 * 10];
-        let address = (userspace_prog_1 as *const u8).wrapping_byte_sub(KERNEL_ADDRESS_BASE) as usize;
+        let mut stack = vec![0; 1024 * 1024 * 10];
+        let address = stack.as_mut_ptr().wrapping_byte_sub(KERNEL_ADDRESS_BASE) as usize;
         unsafe {
             let mut guard = process.write();
-            guard.page_table.as_mut().unwrap().map(address, STACK_ADDR, 4096, MemoryFlags::WRITABLE | MemoryFlags::USER).unwrap();
+            guard.page_table.as_mut().unwrap().map(address, STACK_ADDR, stack.len(), MemoryFlags::WRITABLE | MemoryFlags::USER).unwrap();
         }
 
         let state = ThreadState::new(PROCCESS_ADDR as u64, STACK_ADDR as u64 + stack.len() as u64);
