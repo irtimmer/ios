@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+    "userspace/prog1",
     "bootloader",
     "kernel"
 ]

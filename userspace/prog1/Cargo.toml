@@ -1,0 +1,7 @@
+cargo-features = ["per-package-target"]
+
+[package]
+name = "prog1"
+version = "0.1.0"
+edition = "2021"
+default-target = "x86_64-unknown-none"
