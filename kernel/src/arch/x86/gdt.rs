@@ -8,8 +8,8 @@ use x86_64::structures::gdt::{GlobalDescriptorTable, Descriptor, SegmentSelector
 use x86_64::structures::tss::TaskStateSegment;
 
 pub struct Selectors {
-    code: SegmentSelector,
-    data: SegmentSelector,
+    pub code: SegmentSelector,
+    pub data: SegmentSelector,
     tss: SegmentSelector,
     pub user_data: SegmentSelector,
     pub user_code: SegmentSelector

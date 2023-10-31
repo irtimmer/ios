@@ -17,7 +17,7 @@ use crate::{main, main_cpu, ALLOCATOR};
 use super::acpi::IdentityMappedAcpiMemory;
 use super::paging::PageTable;
 use super::smp::{boot_cpu, setup_boot_code};
-use super::{gdt, interrupts, lapic, ioapic, pci, X86, CpuData, KERNEL_ADDRESS_BASE};
+use super::{gdt, interrupts, lapic, ioapic, pci, X86, CpuData, KERNEL_ADDRESS_BASE, syscall};
 
 const PAGE_SIZE: usize = 4096;
 
@@ -84,6 +84,7 @@ extern "C" fn _start(info: &BootInfo) -> ! {
 
     interrupts::init();
     lapic::init();
+    syscall::init(&CpuData::get().selectors);
 
     if let Some(acpi_table) = info.acpi_table {
         let acpi_table = unsafe { AcpiTables::from_rsdp(IdentityMappedAcpiMemory::default(), acpi_table as usize).unwrap() };
@@ -117,6 +118,7 @@ pub fn start_cpu(cpu_id: u32) -> ! {
 
     interrupts::init();
     lapic::init();
+    syscall::init(&CpuData::get().selectors);
 
     main_cpu(cpu_id);
 }

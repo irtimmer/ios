@@ -88,8 +88,8 @@ unsafe extern "C" fn userspace_prog_1() {
     asm!("\
     2:
         inc rax
-        nop
-        nop
+        mov rdi, rax
+        syscall
         jmp 2b
     ", options(noreturn));
 }
