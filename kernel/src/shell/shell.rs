@@ -1,5 +1,6 @@
 use alloc::string::String;
 use alloc::sync::Arc;
+use alloc::vec;
 use alloc::vec::Vec;
 
 use core::fmt::Write;
@@ -47,7 +48,7 @@ pub async fn ios_shell() {
             "part" => part().await,
             "ls" => ls().await,
             "cat" => cat(args).await,
-            "process" => process().await,
+            "process" => process(args).await,
             "ps" => ps().await,
             "mem" => mem(),
             _ => writeln!(runtime().console.lock(), "Command '{}' not found", cmd).unwrap(),
@@ -104,9 +105,30 @@ pub async fn cat(args: &str) {
     runtime().console.lock().write_str(&String::from_utf8_lossy(&buf[0..len])).unwrap();
 }
 
-pub async fn process() {
+pub async fn process(args: &str) {
+    let block = runtime().get::<VirtioBlk>().unwrap();
+
+    let mbr = Mbr::new(block).await.unwrap();
+    let partition = mbr.get_partition(0).await.unwrap();
+
+    let fs = Arc::new(VFat16::new(Arc::new(partition)).await.unwrap());
+    let entries = fs.listdir("/").await.unwrap();
+    let entry = entries.filter(|e| future::ready(e.name == args)).next().await.unwrap();
+
+    let mut file = fs.open_node(entry.inode, entry.length as u64).await.unwrap();
+    let mut buf = vec![0u8; entry.length as usize];
+    let mut offset = 0;
+    while offset < entry.length as usize {
+        let len = file.read(&mut buf[offset..]).await.unwrap();
+        if len == 0 {
+            break;
+        } else {
+            offset += len;
+        }
+    }
+
     let mut process = Process::new();
-    process.load();
+    process.load(&buf);
     let process = Arc::new(RwLock::new(process));
 
     let thread = Thread::new(process, "process");

@@ -3,7 +3,7 @@ use alloc::sync::Arc;
 use alloc::vec;
 use alloc::vec::Vec;
 
-use core::arch::asm;
+use xmas_elf::{ElfFile, program};
 
 use spin::RwLock;
 
@@ -15,6 +15,7 @@ const PROCCESS_ADDR: usize = 0x900000000;
 const STACK_ADDR: usize = 0x1000000000;
 
 pub struct Process {
+    entry_point: usize,
     page_table: Option<PageTable>
 }
 
@@ -28,19 +29,42 @@ pub struct Thread {
 impl Process {
     pub fn empty() -> Self {
         Self {
+            entry_point: 0,
             page_table: None
         }
     }
 
     pub fn new() -> Self {
         Self {
+            entry_point: 0,
             page_table: Some(runtime().system.new_user_page_table())
         }
     }
 
-    pub fn load(&mut self) {
-        let address = (userspace_prog_1 as *const u8).wrapping_byte_sub(KERNEL_ADDRESS_BASE) as usize;
-        unsafe { self.page_table.as_mut().unwrap().map(address, PROCCESS_ADDR, 4096, MemoryFlags::EXECUTABLE | MemoryFlags::USER).unwrap(); }
+    pub fn load(&mut self, data: &[u8]) {
+        let elf = ElfFile::new(data).unwrap();
+        self.entry_point = PROCCESS_ADDR + elf.header.pt2.entry_point() as usize;
+
+        let size = elf.program_iter().filter(|x| x.get_type().unwrap() == program::Type::Load).map(|x| x.virtual_addr() + x.mem_size()).max().unwrap();
+        let pages = (size / 4096 + 1) as usize;
+
+        let mut code = vec![0u8; pages * 4096];
+        for program in elf.program_iter() {
+            match program.get_type().unwrap() {
+                program::Type::Load => {
+                    let segment_address = program.virtual_addr() as usize;
+                    let segment_size = program.file_size() as usize;
+                    let segment_offset = program.offset() as usize;
+                    let segment = &mut code[segment_address..segment_address + segment_size];
+                    segment.copy_from_slice(&data[segment_offset..segment_offset + segment_size]);
+                },
+                _ => {}
+            }
+        }
+
+        let code = code.leak();
+        let address = code.as_ptr().wrapping_byte_sub(KERNEL_ADDRESS_BASE) as usize;
+        unsafe { self.page_table.as_mut().unwrap().map(address, PROCCESS_ADDR, pages * 4096, MemoryFlags::EXECUTABLE | MemoryFlags::WRITABLE | MemoryFlags::USER).unwrap(); }
     }
 }
 
@@ -62,7 +86,7 @@ impl Thread {
             guard.page_table.as_mut().unwrap().map(address, STACK_ADDR, stack.len(), MemoryFlags::WRITABLE | MemoryFlags::USER).unwrap();
         }
 
-        let state = ThreadState::new(PROCCESS_ADDR as u64, STACK_ADDR as u64 + stack.len() as u64);
+        let state = ThreadState::new(process.read().entry_point as u64, STACK_ADDR as u64 + stack.len() as u64);
 
         Self {
             name: name.to_string(),
@@ -80,16 +104,4 @@ impl Thread {
         }
         self.state.clone()
     }
-}
-
-#[naked]
-#[repr(align(4096))]
-unsafe extern "C" fn userspace_prog_1() {
-    asm!("\
-    2:
-        inc rax
-        mov rdi, rax
-        syscall
-        jmp 2b
-    ", options(noreturn));
 }
