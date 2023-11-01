@@ -1,0 +1,5 @@
+esp/
+target/
+Cargo.lock
+OVMF_CODE.fd
+OVMF_VARS.fd
