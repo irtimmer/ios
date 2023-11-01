@@ -21,7 +21,7 @@ struct IsrStatusRaw {
 }
 
 /// An enum of the device's status field interpretations.
-#[allow(non_camel_case_types)]
+#[allow(non_camel_case_types, dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum DeviceStatus {
@@ -59,7 +59,7 @@ pub struct ComCfgRaw {
 
 /// Virtio's cfg_type constants; indicating type of structure in capabilities list
 /// See Virtio specification v1.1 - 4.1.4
-#[allow(non_camel_case_types)]
+#[allow(non_camel_case_types, dead_code)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[repr(u8)]
 pub enum CfgType {

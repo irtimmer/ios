@@ -33,7 +33,7 @@ pub struct BlkConfig {
     blk_size: u32,
 }
 
-#[allow(non_camel_case_types)]
+#[allow(non_camel_case_types, dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u32)]
 pub enum BlkRequestType {
@@ -44,7 +44,7 @@ pub enum BlkRequestType {
     VIRTIO_BLK_T_WRITE_ZEROES = 13,
 }
 
-#[allow(non_camel_case_types)]
+#[allow(non_camel_case_types, dead_code)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(u8)]
 pub enum BlkRequestStatus {
