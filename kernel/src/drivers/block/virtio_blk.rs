@@ -87,7 +87,6 @@ impl VirtioBlk {
             dev_queue.lock().process();
         })).unwrap();
 
-        let msix_idx = 0;
         let entries = device.device.msix.entries(device.device.pci.bars[1].unwrap().as_ptr() as usize);
 
         let processor = 0;
